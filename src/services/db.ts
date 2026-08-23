@@ -505,6 +505,75 @@ export const db = {
       body: JSON.stringify({ templateId })
     });
   },
+
+  // ---- Handoff / agent (Checkpoint 9) ----
+  async requestHandoff(botId: string, conversationId: string): Promise<{ success: boolean; sessionId: string; status: string }> {
+    return json('/api/handoff/request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botId, conversationId })
+    });
+  },
+
+  async getAgentQueue(): Promise<Array<{ id: string; botId: string; botName: string; conversationId: string; status: string; agentName: string | null; createdAt: number }>> {
+    return json('/api/handoff/queue');
+  },
+
+  async getCannedResponses(): Promise<{ responses: Array<{ id: string; label: string; text: string }> }> {
+    return json('/api/handoff/canned');
+  },
+
+  async getAgentSession(sessionId: string): Promise<{
+    id: string; botId: string; botName: string; conversationId: string; status: string;
+    messages: Array<{ id: string; role: string; content: string; provider?: string; createdAt: number }>;
+  }> {
+    return json(`/api/handoff/sessions/${sessionId}`);
+  },
+
+  async pickupSession(sessionId: string): Promise<unknown> {
+    return json(`/api/handoff/sessions/${sessionId}/pickup`, { method: 'POST' });
+  },
+
+  async agentReply(sessionId: string, content: string): Promise<unknown> {
+    return json(`/api/handoff/sessions/${sessionId}/reply`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+  },
+
+  async closeSession(sessionId: string): Promise<unknown> {
+    return json(`/api/handoff/sessions/${sessionId}/close`, { method: 'POST' });
+  },
+
+  async suggestReply(sessionId: string): Promise<{ suggestion: string }> {
+    return json(`/api/handoff/sessions/${sessionId}/suggest`, { method: 'POST' });
+  },
+
+  async addAgentNote(sessionId: string, note: string): Promise<unknown> {
+    return json(`/api/handoff/sessions/${sessionId}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note })
+    });
+  },
+
+  // ---- Vision + compare (Checkpoint 9) ----
+  async sendVision(botId: string, conversationId: string, message: string, imageBase64: string): Promise<{ response: string; messageId: string; provider: string }> {
+    return json('/api/chat/vision', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botId, conversationId, message, image: imageBase64 })
+    });
+  },
+
+  async compareModels(botId: string, message: string): Promise<{ results: Array<{ provider: string; model: string; response: string }> }> {
+    return json('/api/chat/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botId, conversationId: 'compare', message })
+    });
+  },
 };
 
 export interface AnalyticsOverview {

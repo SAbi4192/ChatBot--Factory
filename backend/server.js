@@ -26,6 +26,9 @@ import analyticsRoutes from './routes/analytics.routes.js';
 import moderationRoutes from './routes/moderation.routes.js';
 import builderRoutes from './routes/builder.routes.js';
 import templatesRoutes from './routes/templates.routes.js';
+import handoffRoutes from './routes/handoff.routes.js';
+import publicRoutes from './routes/public.routes.js';
+import widgetRoutes from './routes/widget.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 
 const app = express();
@@ -56,6 +59,8 @@ app.use(express.json({ limit: '2mb' }));
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/share', shareRoutes);
+app.use('/api/public', publicRoutes);
+app.use('/', widgetRoutes);
 
 // --- Protected API routes (JWT + org scoping) -------------------------------------
 app.use('/api/orgs', requireAuth, orgRoutes);
@@ -63,6 +68,7 @@ app.use('/api/bots', requireAuth, botRoutes);
 app.use('/api/bots', requireAuth, builderRoutes);
 app.use('/api/bots/custom', requireAuth, customBotRoutes);
 app.use('/api/templates', requireAuth, templatesRoutes);
+app.use('/api/handoff', requireAuth, handoffRoutes);
 app.use('/api/conversations', requireAuth, conversationRoutes);
 app.use('/api/conversations', requireAuth, intelligenceRoutes);
 app.use('/api/search', requireAuth, searchRoutes);

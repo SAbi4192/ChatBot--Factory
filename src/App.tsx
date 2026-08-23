@@ -15,6 +15,8 @@ import OrgSettingsView from './pages/OrgSettingsView';
 import KBView from './pages/KBView';
 import AnalyticsView from './pages/AnalyticsView';
 import ModerationView from './pages/ModerationView';
+import AgentView from './pages/AgentView';
+import WidgetConfigView from './pages/WidgetConfigView';
 import BotEditor from './pages/BotEditor';
 import FlowBuilder from './pages/FlowBuilder';
 import TemplatesView from './pages/TemplatesView';
@@ -75,6 +77,13 @@ function App() {
             </AppShell>
           </Protected>
         } />
+        <Route path="/widget/:botId" element={
+          <Protected>
+            <AppShell>
+              <WidgetConfigView />
+            </AppShell>
+          </Protected>
+        } />
 
         {/* Everything else lives inside the app shell (sidebar + top bar) */}
         <Route path="/*" element={
@@ -87,6 +96,7 @@ function App() {
                 <Route path="/search" element={<SearchView />} />
                 <Route path="/analytics" element={<AnalyticsView />} />
                 <Route path="/moderation" element={<ModerationView />} />
+                <Route path="/agent" element={<AgentView />} />
                 <Route path="/templates" element={<TemplatesView />} />
                 <Route path="/settings" element={<SettingsView />} />
                 <Route path="/settings/org" element={<OrgSettingsView />} />

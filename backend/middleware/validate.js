@@ -149,6 +149,20 @@ export const schemas = {
   saveTemplate: z.object({
     botId: shortId,
   }),
+
+  // ---- Handoff (Checkpoint 9) ----
+  handoffRequest: z.object({
+    botId: shortId,
+    conversationId: shortId,
+  }),
+
+  agentReply: z.object({
+    content: z.string().trim().min(1).max(4000),
+  }),
+
+  agentNote: z.object({
+    note: z.string().trim().min(1).max(2000),
+  }),
 };
 
 /** Express middleware factory: validate req.body against a Zod schema. */

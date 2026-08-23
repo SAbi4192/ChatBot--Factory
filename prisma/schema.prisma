@@ -252,7 +252,8 @@ model AgentSession {
   conversationId String    @map("conversation_id")
   agentUserId    String?   @map("agent_user_id")
   status         String    @default("queued") // queued | active | closed
-  createdAt      DateTime @default(now()) @map("created_at")
+  notes          Json?
+  createdAt      DateTime  @map("created_at")
   closedAt       DateTime? @map("closed_at")
 
   bot  Bot?  @relation(fields: [botId], references: [id], onDelete: Cascade)

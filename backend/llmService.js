@@ -2,6 +2,7 @@ import db from './db.js';
 import { GoogleGenAI } from '@google/genai';
 import Groq from 'groq-sdk';
 import { checkDomainRelevance, generateRedirectMessage, generateIntroMessage } from './domainGuard.js';
+import { runTools } from './services/tools.service.js';
 import { analyzeMessage, redactPII } from './services/nlu.service.js';
 import { runSlotEngine, runFlowEngine } from './services/engines.service.js';
 
@@ -266,6 +267,15 @@ export async function routeAndPersist(bot, conversationId, userMessage, history)
     console.warn(`[engines] skipped (${e.message})`);
   }
 
+  // ---- 1d. TOOLS (weather, calculator, reminders, URL fetch) ----
+  const toolResult = await runTools(userMessage, bot.orgId);
+  if (toolResult.matched) {
+    console.log(`[Router] Action: TOOL (${toolResult.text.slice(0, 60)})`);
+    const aid = uid();
+    await db.addMessage(aid, conversationId, 'assistant', toolResult.text, Date.now(), 'tools', null);
+    return { response: toolResult.text, messageId: aid, provider: 'tools', sources: null };
+  }
+
   // ---- 2. CURRENT-INFO ROUTER ----
   const mode = (process.env.AI_PROVIDER || 'auto').toLowerCase();
   const current = isCurrentQuery(userMessage);
@@ -330,9 +340,60 @@ export async function regenerateChatResponse(botId, conversationId) {
   return routeAndPersist(bot, conversationId, lastUser.content, history);
 }
 
+// ============================================================================
+// ADVANCED AI (Checkpoint 9) — vision + model comparison
+// ============================================================================
+
+/**
+ * Analyze an image with Gemini vision. Returns the text description.
+ */
+export async function visionAnalyze(bot, imageBase64, mime, prompt = 'Describe this image.') {
+  if (!gemini) throw new Error('Gemini not configured — vision requires a Gemini API key');
+  const response = await gemini.models.generateContent({
+    model: GEMINI_MODEL,
+    contents: [{
+      role: 'user',
+      parts: [
+        { text: prompt },
+        { inlineData: { mimeType: mime || 'image/png', data: imageBase64 } },
+      ],
+    }],
+  });
+  return (response.text || 'I could not interpret that image.').trim();
+}
+
+/**
+ * Compare the same message across two providers (side-by-side view).
+ */
+export async function compareModels(bot, userMessage) {
+  const results = [];
+  const seen = new Set();
+
+  if (hasGroq() && !seen.has('groq')) {
+    seen.add('groq');
+    try {
+      const r = await fetchFromGroqChat(bot, [], userMessage);
+      results.push({ provider: 'groq', model: GROQ_CHAT_MODEL, response: r.response });
+    } catch (e) { results.push({ provider: 'groq', model: GROQ_CHAT_MODEL, response: `Error: ${e.message}` }); }
+  }
+  if (hasGemini() && !seen.has('gemini')) {
+    seen.add('gemini');
+    try {
+      const r = await fetchFromGemini(bot, [], userMessage);
+      results.push({ provider: 'gemini', model: GEMINI_MODEL, response: r.response });
+    } catch (e) { results.push({ provider: 'gemini', model: GEMINI_MODEL, response: `Error: ${e.message}` }); }
+  }
+  if (!results.length) {
+    try {
+      const r = await fetchFromLocal(bot, [], userMessage);
+      results.push({ provider: 'local', model: 'GGUF', response: r.response });
+    } catch (e) { results.push({ provider: 'local', model: 'GGUF', response: `Error: ${e.message}` }); }
+  }
+  return results;
+}
+
 // Report which providers are available (used by /api/health + the UI status dot).
-export async function getProviderStatus() {
-  let localReachable = false;
+export async function getProviderStatus() {  let localReachable = false;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);
