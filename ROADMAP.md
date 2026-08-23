@@ -49,7 +49,7 @@
 - ✅ Activity log (audit trail), usage quotas with meters (80% warn / 100% block)
 - ✅ Account settings: change password, display name, avatar
 
-## Checkpoint 3 — Custom Bot Creator ⭐ (flagship innovation)
+## Checkpoint 3 — Custom Bot Creator ⭐ (flagship innovation) ✅ DONE
 
 - Natural-language bot creation: "describe it → AI designs the whole bot"
 - LLM generates name, domain, personality, system prompt, welcome, 4 starters, domain profile, design DNA, avatar
@@ -58,7 +58,7 @@
 - Template-based fallback when no API key (demo never dead-ends)
 - `creation_method: 'custom' | 'factory'` provenance badges
 
-## Checkpoint 4 — Streaming & Conversation Features
+## Checkpoint 4 — Streaming & Conversation Features ✅ DONE
 
 - SSE token streaming (`text/event-stream`), progressive render + animated cursor, graceful fallback
 - Message editing + fork (branch switcher dropdown)
@@ -68,9 +68,9 @@
 - Share conversation read-only link (`/share/:id`)
 - Sliding window + auto-summarization, context usage meter, manual summarize button
 
-## Checkpoint 5 — RAG Knowledge Base
+## Checkpoint 5 — RAG Knowledge Base ✅ DONE
 
-## Checkpoint 6 — Analytics & Insights
+## Checkpoint 6 — Analytics & Insights ✅ DONE
 
 - Overview cards (animated counters): bots, conversations, messages, avg response time, CSAT
 - Charts (recharts): conversations over time, provider donut, top bots, domain distribution,
@@ -79,7 +79,7 @@
 - Real-time monitoring via 5s polling (active conversations, messages/min, provider load, error rate)
 - CSV export + chart PNG/SVG export, on-demand reports saved to DB + Reports page
 
-## Checkpoint 7 — NLU & Guardrails
+## Checkpoint 7 — NLU & Guardrails ✅ DONE
 
 - Intent classification (rule-based first pass + optional LLM)
 - Entity extraction (dates, numbers, emails, URLs, phone)
@@ -88,7 +88,7 @@
 - PII detection & optional redaction, toxicity filter, prompt-injection protection
 - Groundedness score (RAG hallucination approximation), moderation dashboard, per-bot guardrail toggles
 
-## Checkpoint 8 — Bot Builder & Versioning
+## Checkpoint 8 — Bot Builder & Versioning ✅ DONE
 
 - Bot configuration panel: identity, personality sliders, system prompt editor with {{variables}},
   appearance editor with live preview, behavior toggles, starter-question manager, guard strictness
@@ -98,7 +98,7 @@
 - Slot filling / multi-step forms with validation, progress, summary, export
 - Visual flow builder (reactflow): 5 node types (Message, Question, Condition, AI, Handoff) + simulator
 
-## Checkpoint 9 — Advanced AI, Handoff & Widget
+## Checkpoint 9 — Advanced AI, Handoff & Widget ✅ DONE
 
 - Per-bot model selection + model comparison view (side-by-side)
 - Multi-modal: image upload → Gemini vision, file upload → context, voice input (Web Speech API),
@@ -110,7 +110,7 @@
 - Embeddable widget: one `<script>` tag, iframe isolation, bot theme, pre-chat form, unread badge,
   typing indicator, offline message, config page with embed code + CORS allowlist
 
-## Checkpoint 10 — Polish, Docker & Testing
+## Checkpoint 10 — Polish, Docker & Testing ✅ DONE
 
 - Dockerfile + docker-compose (app + postgres + llm, healthchecks, volumes) — optional path,
   `start_all.bat` stays primary
