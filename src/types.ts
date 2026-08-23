@@ -72,4 +72,6 @@ export interface Message {
   provider?: string;
   sources?: string[] | null;
   createdAt?: number;
+  pinned?: boolean;
+  rating?: number; // 1 | -1 | 0 (thumbs)
 }

@@ -57,6 +57,8 @@ function mapMessageToFrontend(m) {
     provider: m.provider,
     sources: m.sources ?? null,
     createdAt: ms(m.createdAt),
+    pinned: m.pinned === true,
+    rating: m.feedback ? m.feedback.rating : undefined,
   };
 }
 
@@ -189,6 +191,7 @@ const getMessages = async (convId) => {
   const msgs = await prisma.message.findMany({
     where: { conversationId: convId },
     orderBy: { createdAt: 'asc' },
+    include: { feedback: { select: { rating: true } } },
   });
   return msgs.map(mapMessageToFrontend);
 };

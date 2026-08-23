@@ -200,7 +200,8 @@ const uid = () => Math.random().toString(36).substring(2, 11);
 
 // Shared: run the Domain Guard + current-info router and persist the answer.
 // `history` must be the messages that came BEFORE `userMessage`.
-async function routeAndPersist(bot, conversationId, userMessage, history) {
+// Exported so the fork flow can route without duplicating the user message.
+export async function routeAndPersist(bot, conversationId, userMessage, history) {
   // ---- 1. DOMAIN GUARD ----
   const relevance = await checkDomainRelevance(bot, userMessage, history);
   console.log(`\n[DomainGuard] Bot: ${bot.domain} · ${bot.subdomain} | Query: "${userMessage}"`);
@@ -305,4 +306,133 @@ export async function getProviderStatus() {
     gemini: hasGemini(),
     localUrl: LOCAL_LLM_URL
   };
+}
+
+// ============================================================================
+// STREAMING (SSE) — token-by-token responses for the chat UI
+// ============================================================================
+
+/**
+ * Stream an assistant reply token by token. `emit(token)` is called for each
+ * chunk. Falls back to a single full emission (non-streaming providers).
+ *
+ * Routing mirrors generateChatResponse: Domain Guard -> profile -> AI chain.
+ */
+export async function streamChatResponse(botId, conversationId, userMessage, emit) {
+  const bot = await db.getBot(botId);
+  if (!bot) throw new Error('Bot not found');
+
+  const messages = await db.getMessages(conversationId);
+  const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+
+  // Persist the user message up front.
+  await db.addMessage(uid(), conversationId, 'user', userMessage, Date.now());
+
+  // ---- 1. DOMAIN GUARD ----
+  const relevance = await checkDomainRelevance(bot, userMessage, history);
+  if (!relevance.relevant) {
+    const redirectMsg = generateRedirectMessage(bot);
+    const aid = uid();
+    await db.addMessage(aid, conversationId, 'assistant', redirectMsg, Date.now(), 'domain-guard', null);
+    emit(redirectMsg);
+    return { response: redirectMsg, messageId: aid, provider: 'domain-guard', sources: null, streamed: false };
+  }
+
+  // ---- 1b. GREETING / META ----
+  if (relevance.kind === 'greeting' || relevance.kind === 'meta') {
+    const introMsg = generateIntroMessage(bot, relevance.kind);
+    const aid = uid();
+    await db.addMessage(aid, conversationId, 'assistant', introMsg, Date.now(), 'profile', null);
+    emit(introMsg);
+    return { response: introMsg, messageId: aid, provider: 'profile', sources: null, streamed: false };
+  }
+
+  // ---- 2. STREAM from Groq (supports streaming) ----
+  if (hasGroq()) {
+    try {
+      return await streamFromGroq(bot, history, userMessage, emit, conversationId);
+    } catch (e) {
+      console.warn(`[stream] Groq failed (${e.message}); falling back to non-streaming`);
+    }
+  }
+
+  // ---- 3. NON-STREAMING FALLBACK (Gemini / local / any) ----
+  const result = await routeAndPersist(bot, conversationId, userMessage, history);
+  emit(result.response);
+  return { ...result, streamed: false };
+}
+
+async function streamFromGroq(bot, history, userMessage, emit, conversationId) {
+  const messages = [
+    { role: 'system', content: bot.systemPrompt },
+    ...history.map(m => ({ role: m.role, content: m.content })),
+    { role: 'user', content: userMessage }
+  ];
+  const stream = await groq.chat.completions.create({
+    model: GROQ_CHAT_MODEL,
+    messages,
+    temperature: 0.7,
+    max_tokens: 900,
+    stream: true,
+  });
+
+  let full = '';
+  for await (const chunk of stream) {
+    const delta = chunk.choices?.[0]?.delta?.content;
+    if (delta) { full += delta; emit(delta); }
+  }
+  const response = (full || 'No response generated.').trim();
+
+  const aid = uid();
+  await db.addMessage(aid, conversationId, 'assistant', response, Date.now(), 'cloud', null);
+  return { response, messageId: aid, provider: 'cloud', sources: null, streamed: true };
+}
+
+// ============================================================================
+// CONVERSATION INTELLIGENCE — sliding window + auto-summarization
+// ============================================================================
+
+const WINDOW_CHARS = 12000; // ~3000 tokens — when history exceeds this, older turns are condensed
+
+/**
+ * Build the history for an LLM call with a sliding window: if the recent
+ * turns are too long, the older ones are replaced by a single summary line
+ * (heuristic when the LLM summary is unavailable — deterministic, offline).
+ */
+export async function buildWindowedHistory(bot, conversationId, maxTurns = 10) {
+  const messages = await db.getMessages(conversationId);
+  if (!messages.length) return [];
+
+  const recent = messages.slice(-maxTurns).map(m => ({ role: m.role, content: m.content }));
+  let chars = recent.reduce((acc, m) => acc + m.content.length, 0);
+  if (chars <= WINDOW_CHARS) return recent;
+
+  const older = messages.slice(0, -maxTurns).map(m => ({ role: m.role, content: m.content }));
+  let summary;
+  try {
+    summary = await summarizeText(older.map(m => `${m.role}: ${m.content}`).join('\n'));
+  } catch {
+    // Offline heuristic summary: first user intent + last user message.
+    const firstUser = older.find(m => m.role === 'user');
+    const lastUser = [...older].reverse().find(m => m.role === 'user');
+    summary = `Earlier in this conversation: "${firstUser?.content?.slice(0, 120) ?? ''}" ... "${lastUser?.content?.slice(0, 120) ?? ''}" (older messages condensed).`;
+  }
+  return [{ role: 'system', content: `Summary of earlier conversation: ${summary}` }, ...recent];
+}
+
+/** Summarize a block of text with the cloud LLM (Groq), falling back to heuristic. */
+export async function summarizeText(text) {
+  if (hasGroq()) {
+    const completion = await groq.chat.completions.create({
+      model: GROQ_CHAT_MODEL,
+      temperature: 0.3,
+      max_tokens: 220,
+      messages: [
+        { role: 'system', content: 'Summarize the following conversation concisely in 2-3 sentences. Keep names and key facts.' },
+        { role: 'user', content: text.slice(0, 6000) },
+      ],
+    });
+    return completion.choices?.[0]?.message?.content?.trim() || 'Summary unavailable.';
+  }
+  throw new Error('No cloud provider for summarization');
 }

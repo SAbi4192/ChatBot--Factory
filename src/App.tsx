@@ -6,6 +6,8 @@ import DashboardView from './pages/DashboardView';
 import FactoryView from './pages/FactoryView';
 import LibraryView from './pages/LibraryView';
 import ChatView from './pages/ChatView';
+import ShareView from './pages/ShareView';
+import SearchView from './pages/SearchView';
 import LoginView from './pages/auth/LoginView';
 import RegisterView from './pages/auth/RegisterView';
 import SettingsView from './pages/SettingsView';
@@ -38,6 +40,7 @@ function App() {
         {/* Public auth pages */}
         <Route path="/login" element={<LoginView />} />
         <Route path="/register" element={<RegisterView />} />
+        <Route path="/share/:convId" element={<ShareView />} />
 
         {/* Chat is a fully themed, full-screen experience — outside the app shell */}
         <Route path="/chat/:botId" element={
@@ -54,6 +57,7 @@ function App() {
                 <Route path="/" element={<DashboardView />} />
                 <Route path="/factory" element={<FactoryView />} />
                 <Route path="/library" element={<LibraryView />} />
+                <Route path="/search" element={<SearchView />} />
                 <Route path="/settings" element={<SettingsView />} />
                 <Route path="/settings/org" element={<OrgSettingsView />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

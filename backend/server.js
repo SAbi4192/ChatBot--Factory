@@ -18,6 +18,9 @@ import orgRoutes from './routes/orgs.routes.js';
 import botRoutes from './routes/bots.routes.js';
 import customBotRoutes from './routes/customBot.routes.js';
 import conversationRoutes from './routes/conversations.routes.js';
+import intelligenceRoutes from './routes/intelligence.routes.js';
+import searchRoutes from './routes/search.routes.js';
+import shareRoutes from './routes/share.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 
 const app = express();
@@ -47,12 +50,15 @@ app.use(express.json({ limit: '2mb' }));
 // --- Public routes ---------------------------------------------------------------
 app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api/share', shareRoutes);
 
 // --- Protected API routes (JWT + org scoping) -------------------------------------
 app.use('/api/orgs', requireAuth, orgRoutes);
 app.use('/api/bots', requireAuth, botRoutes);
 app.use('/api/bots/custom', requireAuth, customBotRoutes);
 app.use('/api/conversations', requireAuth, conversationRoutes);
+app.use('/api/conversations', requireAuth, intelligenceRoutes);
+app.use('/api/search', requireAuth, searchRoutes);
 app.use('/api/chat', requireAuth, chatRoutes);
 
 // --- Static frontend (production) -------------------------------------------

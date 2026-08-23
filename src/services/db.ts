@@ -302,4 +302,92 @@ export const db = {
       body: JSON.stringify({ description })
     });
   },
+
+  // ---- Conversation intelligence (Checkpoint 4) ----
+  async streamChat(
+    botId: string,
+    conversationId: string,
+    message: string,
+    onToken: (token: string) => void
+  ): Promise<{ messageId: string; provider: string; sources?: string[] | null; streamed: boolean }> {
+    const res = await authFetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botId, conversationId, message }),
+    });
+    if (!res.ok || !res.body) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error || 'Stream request failed');
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    let meta: { messageId: string; provider: string; sources?: string[] | null; streamed: boolean } | null = null;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop() ?? '';
+      for (const part of parts) {
+        const line = part.trim();
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const data = JSON.parse(line.slice(6));
+          if (data.token) onToken(data.token as string);
+          if (data.error) throw new Error(data.error as string);
+          if (data.done) meta = { messageId: data.messageId, provider: data.provider, sources: data.sources, streamed: data.streamed };
+        } catch (e) {
+          if ((e as Error).message.startsWith('Unexpected')) continue; // partial JSON
+          throw e;
+        }
+      }
+    }
+    if (!meta) throw new Error('Stream ended without a final event');
+    return meta;
+  },
+
+  async forkConversation(
+    convId: string,
+    messageId: string,
+    newText: string
+  ): Promise<{ conversationId: string; botId: string; response: { response: string; messageId: string; provider?: string; sources?: string[] | null } }> {
+    return json(`/api/conversations/${convId}/fork`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messageId, newText })
+    });
+  },
+
+  async summarizeConversation(convId: string): Promise<{ summary: string }> {
+    return json(`/api/conversations/${convId}/summarize`, { method: 'POST' });
+  },
+
+  async togglePin(convId: string, msgId: string): Promise<{ pinned: boolean }> {
+    return json(`/api/conversations/${convId}/messages/${msgId}/pin`, { method: 'PATCH' });
+  },
+
+  async reactToMessage(convId: string, msgId: string, value: -1 | 0 | 1): Promise<{ rating: number }> {
+    return json(`/api/conversations/${convId}/messages/${msgId}/reaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value })
+    });
+  },
+
+  async search(q: string): Promise<{
+    conversations: Array<{ id: string; title: string | null; bot: Bot; updatedAt: number }>;
+    messages: Array<{ id: string; content: string; role: string; provider?: string; conversationId: string; conversationTitle: string | null; bot: Bot; createdAt: number }>;
+  }> {
+    return json(`/api/search?q=${encodeURIComponent(q)}`);
+  },
+
+  async getSharedConversation(convId: string): Promise<{
+    id: string;
+    title: string | null;
+    bot: Bot;
+    messages: Array<{ id: string; role: string; content: string; provider?: string; sources?: string[] | null; createdAt: number }>;
+  } | null> {
+    return json(`/api/share/${convId}`);
+  },
 };

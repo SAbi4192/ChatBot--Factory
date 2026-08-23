@@ -966,3 +966,10 @@
   to { opacity: 1; transform: translateY(0); }
 }
 .page-enter { animation: pageUp 0.4s var(--ease) both; }
+/* ---- Share view (Checkpoint 4) ---- */
+.share-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.4rem; }
+.share-title { font-size: 0.7rem; letter-spacing: 0.14em; }
+.share-message .share-role { letter-spacing: 0.1em; }
+.share-content p { margin: 0; }
+.share-content pre { overflow-x: auto; }
+@media (max-width: 560px) { .share-header .btn-text { display: none; } }

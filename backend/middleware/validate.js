@@ -108,6 +108,16 @@ export const schemas = {
   customBotCreate: z.object({
     description: z.string().trim().min(3).max(500),
   }),
+
+  // ---- Conversation intelligence (Checkpoint 4) ----
+  forkConversation: z.object({
+    messageId: shortId,
+    newText: z.string().trim().min(1).max(8000),
+  }),
+
+  reaction: z.object({
+    value: z.number().int().min(-1).max(1),
+  }),
 };
 
 /** Express middleware factory: validate req.body against a Zod schema. */
