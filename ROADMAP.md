@@ -8,18 +8,20 @@
 
 ---
 
-## Checkpoint 0 — Foundation (bugs, security, restructure, Prisma)
+## Checkpoint 0 — Foundation (bugs, security, restructure, Prisma) ✅ DONE
 
-- Fix orphaned messages on conversation delete (transactional cascade)
-- Add `DELETE /api/bots/:botId` with cascade
-- Frontend batch loop for >50 bot generation (server keeps 50/request cap)
-- Fix Gemini model default mismatch (`gemini-2.5-flash`)
-- Remove dead code: `src/App.css`, unused `generateBots` wrapper
-- Consolidate stray test files into `tests/legacy/`
-- Normalize snake_case/camelCase at the API boundary
-- Security: helmet, CORS allowlist, express-rate-limit, Zod validation on every endpoint, central error handler
-- Backend restructure: `routes/` + `services/` + `middleware/`
-- Prisma ORM + full enterprise schema (14 models), SQLite provider default, one-time legacy data migration script
+> Commits: `58e96d3` (0.0) · `b0c7d8d` (0.1) · `041db29` (0.2) · `db8edea` (0.3) · `877ddad` (0.4)
+
+- ✅ Fix orphaned messages on conversation delete (transactional cascade)
+- ✅ Add `DELETE /api/bots/:botId` with cascade
+- ✅ Frontend batch loop for >50 bot generation (server keeps 50/request cap)
+- ✅ Fix Gemini model default mismatch (`gemini-2.5-flash`)
+- ✅ Remove dead code: `src/App.css`, unused `generateBots` wrapper
+- ✅ Consolidate stray test files into `tests/legacy/`
+- ✅ Normalize snake_case/camelCase at the API boundary
+- ✅ Security: helmet, CORS allowlist, express-rate-limit, Zod validation on every endpoint, central error handler
+- ✅ Backend restructure: `routes/` + `services/` + `middleware/`
+- ✅ Prisma ORM + full enterprise schema (14 models), SQLite provider default, one-time legacy data migration script
 
 ## Checkpoint 1 — UI Overhaul (design system, layout, motion)
 

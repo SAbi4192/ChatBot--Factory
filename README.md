@@ -12,6 +12,8 @@ Every generated bot is genuinely different: its own domain and specialty, person
 - **Domain Guard.** A two-layer relevance check (deterministic keyword/intent matching, then an LLM yes/no fallback) keeps each bot on-topic. Off-topic questions get a friendly redirect and cost no AI call.
 - **Hybrid AI routing.** Normal questions are answered by the local GGUF model; questions that need current information are routed to web-enabled cloud AI. If the local model is down, Groq/Gemini transparently cover it, so the demo never dead-ends.
 - **Per-bot Design DNA.** Each bot's theme is scoped to the chat view, so 1,000 bots really can look like 1,000 different products.
+- **Prisma ORM with a 14-model enterprise schema** — bots, conversations, messages, users, organizations, knowledge bases, analytics, agent sessions, versions, and widget configs, all with typed queries and migration history.
+- **Security hardening** — helmet headers, CORS allowlist, per-IP rate limiting, Zod validation on every endpoint, and a central error handler.
 - **Everything persists** in SQLite: bots, conversations, and messages (with their provider label and sources).
 
 ---
@@ -27,22 +29,26 @@ Every generated bot is genuinely different: its own domain and specialty, person
 ## Quick start (Windows, one click)
 
 ```bat
+npm install        # first time only
 start_all.bat
 ```
 
 This opens three windows — the local LLM server, the backend API, and the frontend. When the **frontend** window prints a `Local:` URL (usually `http://localhost:5173`), open it in your browser.
 
+> **Fresh clone?** The SQLite database is git-ignored. Run `npm run prisma:migrate` once before the first start to create it (see below).
+
 ## Manual start (any OS, three terminals)
 
 ```bash
-# 0) First time only: install dependencies
+# 0) First time only: install dependencies + create the database
 npm install
+npm run prisma:migrate    # applies prisma/migrations (SQLite file in data/)
 
 # 1) (Optional) local model server — Windows
 install_deps.bat      # first time only, sets up the Python venv
 start_llm.bat         # serves models/llm-model.gguf on port 8000
 
-# 2) Backend API (Express + SQLite) on port 3001
+# 2) Backend API (Express + Prisma) on port 3001
 npm run server
 
 # 3) Frontend (Vite) on port 5173
@@ -68,6 +74,8 @@ copy .env.example .env    # Windows   (cp on macOS/Linux)
 | `GEMINI_API_KEY` | Secondary web/fallback provider (optional) |
 | `PORT` | Backend port (default `3001`) |
 | `LOCAL_LLM_URL` | Where the Python model server listens |
+| `DATABASE_URL` | SQLite file for Prisma (default `file:../data/chatbot_factory.db`) |
+| `CORS_ORIGINS` | Comma-separated origins allowed to call the API cross-origin (optional) |
 
 **Security:** `.env` holds live secrets and is git-ignored. Keys are read only by the backend — they are never sent to the browser. Do not commit `.env` or the `data/` folder.
 
@@ -104,14 +112,26 @@ src/                     React 19 + Vite + TypeScript
   pages/ChatView         chat + per-bot Design DNA engine
   services/db.ts         typed API client
 backend/
-  server.js              Express API (bots, conversations, chat, health)
+  server.js              thin app setup — middleware, mount routers, listen
+  routes/                HTTP layer: health, bots, conversations, chat
+  services/              business logic: bot, conversation, chat
+  middleware/            validate (Zod), rateLimits, errorHandler
   generator.js           procedural bot generator (domains, DNA, guard profiles)
   domainGuard.js         two-layer domain relevance check
   llmService.js          hybrid AI router (local + Groq + Gemini)
-  db.js                  better-sqlite3 (WAL, migrations, bulk insert)
+  db.js                  data-access layer on Prisma (camelCase API contract)
+prisma/
+  schema.prisma          14-model enterprise schema (SQLite default)
+  migrations/            versioned migration history
+scripts/
+  migrate-legacy-data.mjs  one-time better-sqlite3 → Prisma import
 run_llm.py               Python server for the local GGUF model
 data/                    SQLite database (created at runtime, git-ignored)
 ```
+
+**Security layers** (all active in dev too): helmet security headers, CORS allowlist (`CORS_ORIGINS`), per-IP rate limiting (300 req/min general, 60 req/min on AI endpoints), Zod validation of every request body, and a central error handler that returns consistent JSON without leaking internals.
+
+**Database:** Prisma ORM over SQLite (zero-config, demo-safe). The schema is provider-portable — switching to PostgreSQL means changing the datasource provider and `DATABASE_URL`, then re-migrating. `npm run prisma:studio` opens the ORM's GUI to inspect data.
 
 ---
 
