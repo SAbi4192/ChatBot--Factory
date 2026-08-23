@@ -23,17 +23,19 @@
 - ✅ Backend restructure: `routes/` + `services/` + `middleware/`
 - ✅ Prisma ORM + full enterprise schema (14 models), SQLite provider default, one-time legacy data migration script
 
-## Checkpoint 1 — UI Overhaul (design system, layout, motion)
+## Checkpoint 1 — UI Overhaul (design system, layout, motion) ✅ DONE
 
-- Evolved Foundry design tokens (deep void black, glass surfaces, amber accent, shadows)
-- Reusable UI component library (Button, Input, Card, Modal, Drawer, Tabs, Badge, Avatar, Tooltip, Skeleton)
-- Collapsible sidebar nav + top bar (breadcrumbs, notifications, +New Bot)
-- Framer Motion everywhere: page transitions, staggered lists, card tilt/glow, spring modals, animated counters
-- Dashboard home page (welcome banner, quick actions, recent bots, activity feed, provider status)
-- Cmd+K spotlight search (cmdk), keyboard shortcuts + overlay
-- Skeletons for every loading state, illustrated empty states, toasts (sonner), custom confirm dialogs
-- Accessibility: ARIA, keyboard nav, focus trap, skip link, reduced motion, contrast
-- Responsive: mobile bottom tabs, tablet hamburger
+> Commit: `7889f8a` (1.0)
+
+- ✅ Evolved Foundry design tokens (deep void black, glass surfaces, amber accent, shadows)
+- ✅ Reusable UI component library (Button, Input, Card, Modal, Drawer, Tabs, Badge, Avatar, Tooltip, Skeleton)
+- ✅ Collapsible sidebar nav + top bar (breadcrumbs, notifications, +New Bot)
+- ✅ Framer Motion everywhere: page transitions, staggered lists, card tilt/glow, spring modals, animated counters
+- ✅ Dashboard home page (welcome banner, quick actions, recent bots, activity feed, provider status)
+- ✅ Cmd+K spotlight search (cmdk), keyboard shortcuts + overlay
+- ✅ Skeletons for every loading state, illustrated empty states, toasts (sonner), custom confirm dialogs
+- ✅ Accessibility: ARIA, keyboard nav, focus trap, skip link, reduced motion, contrast
+- ✅ Responsive: mobile bottom tabs, tablet hamburger
 
 ## Checkpoint 2 — Auth & Tenancy
 

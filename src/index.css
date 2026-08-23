@@ -1,74 +1,133 @@
 /* ============================================================
-   UNIVERSAL CHATBOT FACTORY — BASE DESIGN SYSTEM
+   UNIVERSAL CHATBOT FACTORY — ENTERPRISE DESIGN SYSTEM
+   =============================================================
    Identity: "The Foundry" — precision industrial instrument.
-   Deep graphite canvas · engineering grid · signal-amber accent.
-   (Individual bots override their own theme inside the chat view.)
+   Deep void black · glass surfaces · signal-amber accent.
+   Built on the evolved token set from the Checkpoint 1 spec.
    ============================================================ */
+
+/* ---- Fonts (self-hosted fallback stack) ---- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
   color-scheme: dark;
 
-  /* Surfaces */
-  --ink:      #0B0D11;
-  --ink-2:    #0E1116;
-  --panel:    #13181F;
-  --panel-2:  #1A212B;
-  --panel-3:  #212A36;
-  --line:     #262E3A;
-  --line-2:   #313B49;
+  /* Surfaces — deep void black with subtle layering */
+  --bg-primary:     #0A0C10;
+  --bg-secondary:   #12151C;
+  --bg-tertiary:    #1A1E28;
+  --bg-quaternary:  #222836;
 
-  /* Text */
+  /* Borders — progressively more visible */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-hover:   rgba(255, 255, 255, 0.16);
+
+  /* Glass — blurred surface with visible border */
+  --glass:          rgba(18, 21, 28, 0.72);
+  --glass-border:   rgba(255, 255, 255, 0.08);
+
+  /* Accent palette — evolved amber */
+  --accent:         #F5B13D;
+  --accent-hover:   #FFC96B;
+  --accent-glow:    0 0 20px rgba(245, 177, 61, 0.3);
+  --accent-subtle:  rgba(245, 177, 61, 0.08);
+
+  /* Status colors */
+  --success:  #34D399;
+  --warning:  #FBBF24;
+  --error:    #F87171;
+  --info:     #60A5FA;
+
+  /* Legacy aliases (page-level CSS still uses these — map to new tokens) */
+  --ink:      var(--bg-primary);
+  --ink-2:    var(--bg-secondary);
+  --panel:    var(--bg-secondary);
+  --panel-2:  var(--bg-tertiary);
+  --panel-3:  var(--bg-quaternary);
+  --line:     var(--border-default);
+  --line-2:   var(--border-hover);
   --fg:        #EAEEF2;
   --fg-dim:    #8B95A1;
   --fg-faint:  #565F6B;
-
-  /* Signal amber — the single bold accent, used sparingly */
-  --signal:      #F5B13D;
-  --signal-hi:   #FFC768;
+  --signal:      var(--accent);
+  --signal-hi:   var(--accent-hover);
   --signal-deep: #C7871F;
   --signal-soft: rgba(245, 177, 61, 0.12);
   --signal-line: rgba(245, 177, 61, 0.32);
-
-  /* Status */
-  --ok:   #43D18A;
+  --ok:   var(--success);
   --off:  #5A626E;
-  --bad:  #F0664F;
+  --bad:  var(--error);
 
-  /* Type */
+  /* Shadows with increasing depth */
+  --shadow-sm:  0 1px 2px rgba(0,0,0,0.4);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.5);
+  --shadow-lg:  0 12px 32px rgba(0,0,0,0.6);
+  --shadow-xl:  0 24px 64px rgba(0,0,0,0.7);
+  --shadow:     0 18px 48px -24px rgba(0, 0, 0, 0.8); /* legacy alias */
+
+  /* Typography */
   --font-display: 'Archivo', system-ui, sans-serif;
   --font-body:    'Inter', system-ui, sans-serif;
   --font-mono:    'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
 
+  /* Radii */
   --radius:    10px;
   --radius-sm: 7px;
   --radius-lg: 16px;
 
-  --shadow: 0 18px 48px -24px rgba(0, 0, 0, 0.8);
+  /* Motion */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
+/* ---- Reset ---- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; }
 
 body {
   font-family: var(--font-body);
-  background-color: var(--ink);
+  background-color: var(--bg-primary);
   color: var(--fg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.5;
+  overflow-x: hidden;
 }
 
 button { cursor: pointer; border: none; background: none; font-family: inherit; color: inherit; }
 input, textarea { font-family: inherit; color: inherit; }
 a { text-decoration: none; color: inherit; }
+ul, ol { list-style: none; }
+svg { display: block; flex: none; }
+
+/* ---- Focus-visible (accessibility) ---- */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* ---- Skip to content (accessibility) ---- */
+.skip-link {
+  position: fixed;
+  top: -100%;
+  left: 1rem;
+  z-index: 9999;
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: #1a1205;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+  transition: top 0.2s;
+}
+.skip-link:focus { top: 1rem; }
 
 /* ---- Engineering-grid canvas (the factory floor) ---- */
 .foundry-bg {
   position: relative;
   min-height: 100vh;
-  background-color: var(--ink);
+  background-color: var(--bg-primary);
   background-image:
     linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
@@ -84,7 +143,17 @@ a { text-decoration: none; color: inherit; }
     radial-gradient(900px 700px at 100% 100%, rgba(70, 90, 120, 0.10), transparent 55%);
 }
 
-/* ---- Shared brand bar ---- */
+/* ---- Glass card (the standard premium surface) ---- */
+.glass-card {
+  background: var(--glass);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+/* ---- Shared brand bar (kept for backward compat; new shell uses AppShell) ---- */
 .brandbar {
   position: relative;
   z-index: 2;
@@ -93,7 +162,7 @@ a { text-decoration: none; color: inherit; }
   justify-content: space-between;
   gap: 1rem;
   padding: 1.1rem 1.6rem;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--border-default);
   background: rgba(11, 13, 17, 0.72);
   backdrop-filter: blur(10px);
 }
@@ -111,9 +180,9 @@ a { text-decoration: none; color: inherit; }
   display: grid;
   place-items: center;
   width: 30px; height: 30px;
-  border: 1.5px solid var(--signal);
+  border: 1.5px solid var(--accent);
   border-radius: 8px;
-  color: var(--signal);
+  color: var(--accent);
   box-shadow: inset 0 0 12px rgba(245, 177, 61, 0.18);
 }
 .wordmark .mark svg { width: 17px; height: 17px; }
@@ -126,7 +195,7 @@ a { text-decoration: none; color: inherit; }
   text-transform: none;
   padding-left: 0.7rem;
   margin-left: 0.2rem;
-  border-left: 1px solid var(--line-2);
+  border-left: 1px solid var(--border-hover);
 }
 
 /* ---- Eyebrow / mono labels ---- */
@@ -136,11 +205,12 @@ a { text-decoration: none; color: inherit; }
   font-weight: 500;
   letter-spacing: 0.28em;
   text-transform: uppercase;
-  color: var(--signal);
+  color: var(--accent);
 }
 .mono { font-family: var(--font-mono); }
+.accent { color: var(--accent); }
 
-/* ---- Buttons ---- */
+/* ---- Legacy buttons (kept for page-level compatibility) ---- */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -150,43 +220,69 @@ a { text-decoration: none; color: inherit; }
   font-size: 0.9rem;
   padding: 0.72rem 1.15rem;
   border-radius: var(--radius-sm);
-  border: 1px solid var(--line-2);
-  background: var(--panel-2);
+  border: 1px solid var(--border-hover);
+  background: var(--bg-tertiary);
   color: var(--fg);
   transition: transform 0.15s var(--ease), background 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
-.btn:hover { background: var(--panel-3); border-color: var(--fg-faint); }
+.btn:hover { background: var(--bg-quaternary); border-color: var(--fg-faint); }
 .btn:active { transform: translateY(1px); }
 .btn svg { width: 17px; height: 17px; }
 
 .btn-primary {
-  background: var(--signal);
+  background: var(--accent);
   color: #1a1205;
-  border-color: var(--signal);
+  border-color: var(--accent);
   font-weight: 700;
   letter-spacing: 0.02em;
   box-shadow: 0 10px 28px -12px rgba(245, 177, 61, 0.7);
 }
-.btn-primary:hover { background: var(--signal-hi); border-color: var(--signal-hi); }
+.btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 
-.btn-ghost { background: transparent; border-color: var(--line-2); color: var(--fg-dim); }
+.btn-ghost { background: transparent; border-color: var(--border-hover); color: var(--fg-dim); }
 .btn-ghost:hover { color: var(--fg); border-color: var(--fg-faint); background: rgba(255,255,255,0.03); }
 
 /* ---- Status dot ---- */
 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
-.dot.on  { background: var(--ok);  box-shadow: 0 0 0 3px rgba(67, 209, 138, 0.16); }
-.dot.amber { background: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
+.dot.on  { background: var(--success);  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.16); }
+.dot.amber { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-subtle); }
 .dot.off { background: var(--off); }
 
 /* ---- Scrollbar ---- */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #2b333f; border-radius: 10px; border: 2px solid var(--ink); }
+::-webkit-scrollbar-thumb { background: #2b333f; border-radius: 10px; border: 2px solid var(--bg-primary); }
 ::-webkit-scrollbar-thumb:hover { background: #3a4350; }
 
-/* ---- Utilities ---- */
+/* ---- Container ---- */
 .container { max-width: 1180px; margin: 0 auto; padding: 0 1.6rem; }
+.container-wide { max-width: 1400px; margin: 0 auto; padding: 0 1.6rem; }
 
+/* ---- Skeleton shimmer ---- */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-quaternary) 37%, var(--bg-tertiary) 63%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Reduced motion ---- */
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ---- Responsive helpers ---- */
+.hide-mobile { display: revert; }
+.show-mobile { display: none; }
+@media (max-width: 768px) {
+  .hide-mobile { display: none; }
+  .show-mobile { display: revert; }
 }

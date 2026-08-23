@@ -1,8 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import type { Bot } from '../types';
 import { db } from '../services/db';
-import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Plus, Factory, ArrowRight } from 'lucide-react';
+import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Factory, ArrowRight, Bot as BotIcon } from 'lucide-react';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { Button } from '../components/ui/Button';
+import { EmptyState } from '../components/ui/EmptyState';
+import { SkeletonCard } from '../components/ui/Skeleton';
 import './LibraryView.css';
 
 type Filter = 'all' | 'recent' | 'favorites';
@@ -31,6 +36,7 @@ export default function LibraryView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [visible, setVisible] = useState(PAGE);
+  const [confirmReset, setConfirmReset] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -77,43 +83,32 @@ export default function LibraryView() {
   };
 
   const handleReset = async () => {
-    if (window.confirm('Delete all chatbots and every conversation? This cannot be undone.')) {
-      await db.deleteAllBots();
-      setBots([]);
-      navigate('/');
-    }
+    setConfirmReset(false);
+    await db.deleteAllBots();
+    setBots([]);
+    toast.success('Factory floor wiped clean — all bots and conversations deleted.');
+    navigate('/');
   };
 
   return (
-    <div className="foundry-bg lib">
-      <header className="brandbar">
-        <div className="wordmark" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-          <span className="mark"><Factory /></span>
-          Chatbot Factory
-          <span className="sub">bot library</span>
-        </div>
-        <div className="lib-topactions">
-          <button className="btn btn-ghost" onClick={handleShowcase} disabled={!filtered.length}>
-            <Play /> Showcase
-          </button>
-          <button className="btn btn-ghost" onClick={handleSurprise}>
-            <Shuffle /> Forge one
-          </button>
-          <button className="btn btn-primary" onClick={() => navigate('/')}>
-            <Plus /> New batch
-          </button>
-        </div>
-      </header>
-
-      <main className="lib-main container">
+    <div className="lib">
+      <main className="lib-main container-wide">
         <div className="lib-head">
           <div>
             <div className="eyebrow">Manufactured assistants</div>
             <h1 className="lib-title">Bot Library</h1>
           </div>
-          <button className="lib-reset" onClick={handleReset} title="Delete everything">
-            <Trash2 /> Reset all
-          </button>
+          <div className="lib-topactions">
+            <Button variant="ghost" size="sm" onClick={handleShowcase} disabled={!filtered.length}>
+              <Play /> Showcase
+            </Button>
+            <Button variant="ghost" size="sm" onClick={handleSurprise}>
+              <Shuffle /> Forge one
+            </Button>
+            <Button variant="danger" size="sm" onClick={() => setConfirmReset(true)}>
+              <Trash2 /> Reset all
+            </Button>
+          </div>
         </div>
 
         <div className="lib-stats">
@@ -147,20 +142,33 @@ export default function LibraryView() {
         </div>
 
         {loading ? (
-          <div className="lib-empty mono">Loading the production line…</div>
-        ) : filtered.length === 0 ? (
-          <div className="lib-empty">
-            {bots.length === 0 ? (
-              <>
-                <p>No bots yet. Run the foundry to manufacture your first batch.</p>
-                <button className="btn btn-primary" onClick={() => navigate('/')}>
-                  Open the foundry <ArrowRight />
-                </button>
-              </>
-            ) : (
-              <p className="mono">No bots match “{searchQuery}”.</p>
-            )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+            {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
           </div>
+        ) : filtered.length === 0 ? (
+          bots.length === 0 ? (
+            <EmptyState
+              icon={<BotIcon />}
+              title="Your factory floor is empty"
+              description="Run the foundry to manufacture your first batch of domain-specialized assistants."
+              action={
+                <Button variant="primary" onClick={() => navigate('/factory')}>
+                  <Factory /> Open the foundry <ArrowRight />
+                </Button>
+              }
+            />
+          ) : (
+            <EmptyState
+              icon={<Search />}
+              title="Nothing found"
+              description={`No bots match "${searchQuery}". Try a different search, or forge a new one.`}
+              action={
+                <Button variant="ghost" onClick={handleSurprise}>
+                  <Shuffle /> Forge a random bot
+                </Button>
+              }
+            />
+          )
         ) : (
           <>
             <div className="bot-grid">
@@ -207,14 +215,23 @@ export default function LibraryView() {
 
             {visible < filtered.length && (
               <div className="lib-more">
-                <button className="btn btn-ghost" onClick={() => setVisible(v => v + PAGE)}>
+                <Button variant="ghost" onClick={() => setVisible(v => v + PAGE)}>
                   Show more ({(filtered.length - visible).toLocaleString()} hidden)
-                </button>
+                </Button>
               </div>
             )}
           </>
         )}
       </main>
+
+      <ConfirmDialog
+        open={confirmReset}
+        title="Reset the factory?"
+        message="Delete every chatbot, conversation, and message? This cannot be undone."
+        confirmLabel="Delete everything"
+        onConfirm={handleReset}
+        onCancel={() => setConfirmReset(false)}
+      />
     </div>
   );
 }

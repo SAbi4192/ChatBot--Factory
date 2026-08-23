@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Factory, ArrowRight, Shuffle, Cpu, Globe, ShieldCheck, Boxes } from 'lucide-react';
+import { ArrowRight, Shuffle, Cpu, Globe, ShieldCheck } from 'lucide-react';
 import { db, type ProviderStatus } from '../services/db';
 import './FactoryView.css';
 
@@ -20,13 +20,11 @@ export default function FactoryView() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [produced, setProduced] = useState(0);
   const [stageIdx, setStageIdx] = useState(0);
-  const [existing, setExisting] = useState<number | null>(null);
   const [health, setHealth] = useState<ProviderStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    db.getBots().then(b => setExisting(b.length)).catch(() => setExisting(null));
     db.getHealth().then(setHealth).catch(() => setHealth(null));
   }, []);
 
@@ -89,7 +87,7 @@ export default function FactoryView() {
     const target = Math.max(produced, 1);
     const pct = Math.min(100, (produced / (count || 1)) * 100);
     return (
-      <div className="foundry-bg fv-center">
+      <div className="fv-center">
         <div className="fv-run">
           <div className="eyebrow">Production run</div>
           <div className="fv-run-counter mono">
@@ -118,29 +116,7 @@ export default function FactoryView() {
 
   // ---- Idle / console screen ----
   return (
-    <div className="foundry-bg">
-      <header className="brandbar">
-        <div className="wordmark">
-          <span className="mark"><Factory /></span>
-          Chatbot Factory
-          <span className="sub">universal engine · v4</span>
-        </div>
-        <div className="fv-topright">
-          {health && (
-            <div className="fv-providers mono" title="AI providers detected by the backend">
-              <span><i className={`dot ${health.local ? 'on' : 'off'}`} /> LOCAL</span>
-              <span><i className={`dot ${health.groq ? 'on' : 'off'}`} /> GROQ</span>
-              <span><i className={`dot ${health.gemini ? 'on' : 'off'}`} /> GEMINI</span>
-            </div>
-          )}
-          {existing != null && existing > 0 && (
-            <button className="btn btn-ghost" onClick={() => navigate('/library')}>
-              <Boxes /> Library · {existing.toLocaleString()}
-            </button>
-          )}
-        </div>
-      </header>
-
+    <div>
       <main className="fv-main container">
         <section className="fv-hero">
           <div className="eyebrow">Universal bot foundry</div>
@@ -157,6 +133,13 @@ export default function FactoryView() {
             <span className="fv-chip mono"><ShieldCheck /> Domain-guarded</span>
             <span className="fv-chip mono"><Globe /> Web AI when current</span>
           </div>
+          {health && (
+            <div className="fv-providers mono" style={{ marginTop: '1.2rem' }} title="AI providers detected by the backend">
+              <span><i className={`dot ${health.local ? 'on' : 'off'}`} /> LOCAL</span>
+              <span><i className={`dot ${health.groq ? 'on' : 'off'}`} /> GROQ</span>
+              <span><i className={`dot ${health.gemini ? 'on' : 'off'}`} /> GEMINI</span>
+            </div>
+          )}
         </section>
 
         <section className="fv-console" aria-label="Production console">
