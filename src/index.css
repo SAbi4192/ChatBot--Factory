@@ -1,0 +1,192 @@
+/* ============================================================
+   UNIVERSAL CHATBOT FACTORY — BASE DESIGN SYSTEM
+   Identity: "The Foundry" — precision industrial instrument.
+   Deep graphite canvas · engineering grid · signal-amber accent.
+   (Individual bots override their own theme inside the chat view.)
+   ============================================================ */
+
+:root {
+  color-scheme: dark;
+
+  /* Surfaces */
+  --ink:      #0B0D11;
+  --ink-2:    #0E1116;
+  --panel:    #13181F;
+  --panel-2:  #1A212B;
+  --panel-3:  #212A36;
+  --line:     #262E3A;
+  --line-2:   #313B49;
+
+  /* Text */
+  --fg:        #EAEEF2;
+  --fg-dim:    #8B95A1;
+  --fg-faint:  #565F6B;
+
+  /* Signal amber — the single bold accent, used sparingly */
+  --signal:      #F5B13D;
+  --signal-hi:   #FFC768;
+  --signal-deep: #C7871F;
+  --signal-soft: rgba(245, 177, 61, 0.12);
+  --signal-line: rgba(245, 177, 61, 0.32);
+
+  /* Status */
+  --ok:   #43D18A;
+  --off:  #5A626E;
+  --bad:  #F0664F;
+
+  /* Type */
+  --font-display: 'Archivo', system-ui, sans-serif;
+  --font-body:    'Inter', system-ui, sans-serif;
+  --font-mono:    'IBM Plex Mono', ui-monospace, 'SFMono-Regular', monospace;
+
+  --radius:    10px;
+  --radius-sm: 7px;
+  --radius-lg: 16px;
+
+  --shadow: 0 18px 48px -24px rgba(0, 0, 0, 0.8);
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root { height: 100%; }
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--ink);
+  color: var(--fg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+}
+
+button { cursor: pointer; border: none; background: none; font-family: inherit; color: inherit; }
+input, textarea { font-family: inherit; color: inherit; }
+a { text-decoration: none; color: inherit; }
+
+/* ---- Engineering-grid canvas (the factory floor) ---- */
+.foundry-bg {
+  position: relative;
+  min-height: 100vh;
+  background-color: var(--ink);
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.022) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+.foundry-bg::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(1100px 600px at 50% -8%, rgba(245, 177, 61, 0.06), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, rgba(70, 90, 120, 0.10), transparent 55%);
+}
+
+/* ---- Shared brand bar ---- */
+.brandbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.1rem 1.6rem;
+  border-bottom: 1px solid var(--line);
+  background: rgba(11, 13, 17, 0.72);
+  backdrop-filter: blur(10px);
+}
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  font-size: 0.95rem;
+  text-transform: uppercase;
+}
+.wordmark .mark {
+  display: grid;
+  place-items: center;
+  width: 30px; height: 30px;
+  border: 1.5px solid var(--signal);
+  border-radius: 8px;
+  color: var(--signal);
+  box-shadow: inset 0 0 12px rgba(245, 177, 61, 0.18);
+}
+.wordmark .mark svg { width: 17px; height: 17px; }
+.wordmark .sub {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-size: 0.68rem;
+  color: var(--fg-faint);
+  text-transform: none;
+  padding-left: 0.7rem;
+  margin-left: 0.2rem;
+  border-left: 1px solid var(--line-2);
+}
+
+/* ---- Eyebrow / mono labels ---- */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--signal);
+}
+.mono { font-family: var(--font-mono); }
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.72rem 1.15rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-2);
+  background: var(--panel-2);
+  color: var(--fg);
+  transition: transform 0.15s var(--ease), background 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.btn:hover { background: var(--panel-3); border-color: var(--fg-faint); }
+.btn:active { transform: translateY(1px); }
+.btn svg { width: 17px; height: 17px; }
+
+.btn-primary {
+  background: var(--signal);
+  color: #1a1205;
+  border-color: var(--signal);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  box-shadow: 0 10px 28px -12px rgba(245, 177, 61, 0.7);
+}
+.btn-primary:hover { background: var(--signal-hi); border-color: var(--signal-hi); }
+
+.btn-ghost { background: transparent; border-color: var(--line-2); color: var(--fg-dim); }
+.btn-ghost:hover { color: var(--fg); border-color: var(--fg-faint); background: rgba(255,255,255,0.03); }
+
+/* ---- Status dot ---- */
+.dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.dot.on  { background: var(--ok);  box-shadow: 0 0 0 3px rgba(67, 209, 138, 0.16); }
+.dot.amber { background: var(--signal); box-shadow: 0 0 0 3px var(--signal-soft); }
+.dot.off { background: var(--off); }
+
+/* ---- Scrollbar ---- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2b333f; border-radius: 10px; border: 2px solid var(--ink); }
+::-webkit-scrollbar-thumb:hover { background: #3a4350; }
+
+/* ---- Utilities ---- */
+.container { max-width: 1180px; margin: 0 auto; padding: 0 1.6rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

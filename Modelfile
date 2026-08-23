@@ -1,0 +1,10 @@
+FROM "D:\Academic\Training & Placement\ChatBot - Veronica\ChatBot - Veronica\Veronica\models\llm-model.gguf"
+
+# Define default parameters
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER stop "<|im_end|>"
+PARAMETER stop "<|endoftext|>"
+
+# Default system prompt (will be overridden by our backend API calls)
+SYSTEM """You are an AI assistant."""

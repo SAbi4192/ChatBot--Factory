@@ -1,0 +1,250 @@
+/* ============================================================
+   FACTORY VIEW — the production console
+   ============================================================ */
+
+.fv-center { display: grid; place-items: center; }
+
+/* ---- Layout ---- */
+.fv-main {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1.05fr 0.95fr;
+  gap: 4rem;
+  align-items: center;
+  min-height: calc(100vh - 64px);
+  padding-top: 2rem;
+  padding-bottom: 3rem;
+}
+
+/* ---- Hero ---- */
+.fv-hero { animation: fvUp 0.6s var(--ease) both; }
+.fv-hero .eyebrow { margin-bottom: 1.1rem; }
+
+.fv-title {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(2.3rem, 4.6vw, 3.6rem);
+  line-height: 1.03;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+.fv-title .accent { color: var(--signal); }
+
+.fv-lede {
+  margin-top: 1.4rem;
+  max-width: 30rem;
+  color: var(--fg-dim);
+  font-size: 1.03rem;
+  line-height: 1.65;
+}
+
+.fv-features {
+  margin-top: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.fv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.74rem;
+  letter-spacing: 0.04em;
+  color: var(--fg-dim);
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.015);
+}
+.fv-chip svg { width: 14px; height: 14px; color: var(--signal); }
+
+/* ---- Console (signature instrument) ---- */
+.fv-console {
+  background: var(--panel);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  animation: fvUp 0.6s var(--ease) 0.08s both;
+}
+.fv-console-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.15rem;
+  border-bottom: 1px solid var(--line);
+  background:
+    repeating-linear-gradient(45deg, var(--signal-soft) 0 8px, transparent 8px 16px),
+    var(--panel-2);
+  font-size: 0.68rem;
+  letter-spacing: 0.22em;
+  color: var(--fg-dim);
+}
+.fv-console-head .fv-range { color: var(--fg-faint); letter-spacing: 0.1em; }
+
+.fv-console-body { padding: 1.8rem 1.6rem 1.6rem; }
+
+.fv-qty {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  padding: 0.4rem 0.2rem 1rem;
+  border-bottom: 1px dashed var(--line-2);
+}
+.fv-qty-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--fg);
+  font-size: clamp(3rem, 8vw, 4.4rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+/* hide number spinners */
+.fv-qty-input::-webkit-outer-spin-button,
+.fv-qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.fv-qty-input { -moz-appearance: textfield; appearance: textfield; }
+.fv-qty-unit { color: var(--fg-faint); font-size: 0.85rem; letter-spacing: 0.1em; }
+
+.fv-presets { display: flex; gap: 0.5rem; margin: 1.2rem 0 1.5rem; }
+.fv-preset {
+  flex: 1;
+  padding: 0.6rem 0;
+  font-size: 0.85rem;
+  color: var(--fg-dim);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: all 0.15s var(--ease);
+}
+.fv-preset:hover { color: var(--fg); border-color: var(--fg-faint); }
+.fv-preset.sel {
+  color: var(--signal);
+  border-color: var(--signal-line);
+  background: var(--signal-soft);
+}
+
+.fv-produce { width: 100%; padding: 0.95rem; font-size: 0.98rem; }
+
+.fv-or {
+  display: flex; align-items: center; text-align: center;
+  color: var(--fg-faint); font-size: 0.72rem; letter-spacing: 0.2em;
+  text-transform: uppercase; margin: 1.1rem 0;
+}
+.fv-or::before, .fv-or::after { content: ''; flex: 1; border-bottom: 1px solid var(--line); }
+.fv-or span { padding: 0 0.9rem; }
+
+.fv-forge { width: 100%; }
+
+.fv-error {
+  margin-top: 1rem;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.75rem;
+  color: var(--bad);
+  background: rgba(240, 102, 79, 0.08);
+  border: 1px solid rgba(240, 102, 79, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+/* ---- Top-right (providers + library) ---- */
+.fv-topright { display: flex; align-items: center; gap: 1.1rem; }
+.fv-providers { display: flex; gap: 0.9rem; font-size: 0.68rem; letter-spacing: 0.08em; color: var(--fg-faint); }
+.fv-providers span { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+/* ---- Production run screen ---- */
+.fv-run {
+  width: min(560px, 92vw);
+  text-align: center;
+  animation: fvUp 0.5s var(--ease) both;
+}
+.fv-run .eyebrow { margin-bottom: 1.4rem; }
+.fv-run-counter {
+  font-size: clamp(3.4rem, 11vw, 5.6rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.fv-run-now { color: var(--signal); }
+.fv-run-sep { color: var(--fg-faint); }
+.fv-run-target { color: var(--fg-dim); }
+.fv-run-label {
+  margin-top: 0.7rem;
+  color: var(--fg-dim);
+  font-size: 0.9rem;
+}
+
+.fv-rail {
+  margin: 2.2rem 0 2rem;
+  height: 4px;
+  background: var(--panel-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.fv-rail-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--signal-deep), var(--signal));
+  transition: width 0.12s linear;
+}
+
+.fv-stages { list-style: none; text-align: left; display: grid; gap: 0.15rem; }
+.fv-stages li {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--fg-faint);
+  transition: all 0.25s var(--ease);
+}
+.fv-stages li.active {
+  color: var(--fg);
+  border-color: var(--signal-line);
+  background: var(--signal-soft);
+}
+.fv-stages li.done { color: var(--fg-dim); }
+.fv-stage-code {
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  padding: 0.2rem 0.45rem;
+  border: 1px solid var(--line-2);
+  border-radius: 5px;
+}
+.fv-stages li.active .fv-stage-code { border-color: var(--signal-line); color: var(--signal); }
+.fv-stages li.done .fv-stage-state { color: var(--ok); }
+.fv-stage-name { font-size: 0.9rem; }
+.fv-stage-state { font-size: 0.72rem; letter-spacing: 0.1em; }
+
+.fv-run-note {
+  margin-top: 1.8rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.24em;
+  color: var(--fg-faint);
+}
+
+@keyframes fvUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 900px) {
+  .fv-main { grid-template-columns: 1fr; gap: 2.4rem; padding-top: 2.5rem; min-height: 0; }
+  .fv-hero { text-align: center; }
+  .fv-lede { margin-left: auto; margin-right: auto; }
+  .fv-features { justify-content: center; }
+  .fv-console { max-width: 480px; width: 100%; margin: 0 auto; }
+}
+@media (max-width: 560px) {
+  .fv-providers { display: none; }
+  .brandbar { padding: 0.9rem 1.1rem; }
+  .wordmark .sub { display: none; }
+}
