@@ -4,7 +4,7 @@
  * any handler logic runs.
  */
 import { z } from 'zod';
-import { ApiError } from './middleware.js';
+import { ApiError } from './errorHandler.js';
 
 const shortId = z.string().trim().min(1).max(64);
 const title = z.string().trim().min(1).max(200);

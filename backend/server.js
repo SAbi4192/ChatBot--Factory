@@ -6,12 +6,13 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import rateLimit from 'express-rate-limit';
-import db from './db.js';
-import { generateSingleBot } from './generator.js';
-import { generateChatResponse, regenerateChatResponse, getProviderStatus } from './llmService.js';
-import { errorHandler, ApiError } from './middleware.js';
-import { validate, schemas } from './validation.js';
+
+import { apiLimiter } from './middleware/rateLimits.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import healthRoutes from './routes/health.routes.js';
+import botRoutes from './routes/bots.routes.js';
+import conversationRoutes from './routes/conversations.routes.js';
+import chatRoutes from './routes/chat.routes.js';
 
 const app = express();
 
@@ -36,187 +37,15 @@ app.use(cors({
   },
 }));
 
-// --- Rate limiting -------------------------------------------------------------
-// Generous defaults for a demo app; the AI endpoints get a tighter limit since
-// each call costs real provider tokens.
-const apiLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: 300,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please slow down.' },
-});
-const aiLimiter = rateLimit({
-  windowMs: 60_000,
-  limit: 60,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: 'AI request limit reached — try again in a minute.' },
-});
-
+// --- Body parsing + rate limiting ----------------------------------------------
 app.use('/api', apiLimiter);
 app.use(express.json({ limit: '2mb' }));
 
-// --- Health / status -------------------------------------------------------
-app.get('/api/health', async (req, res) => {
-  try {
-    const status = await getProviderStatus();
-    res.json({ ok: true, ...status });
-  } catch (error) {
-    res.status(500).json({ ok: false, error: error.message });
-  }
-});
-
-// --- Bots ------------------------------------------------------------------
-app.get('/api/bots', (req, res) => {
-  try {
-    res.json(db.getBots());
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/bots/:botId', (req, res) => {
-  try {
-    const bot = db.getBot(req.params.botId);
-    if (!bot) return res.status(404).json({ error: 'Bot not found' });
-    res.json(bot);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete('/api/bots', (req, res) => {
-  try {
-    db.deleteAll();
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Delete a single bot with cascade (its conversations and messages go too).
-app.delete('/api/bots/:botId', (req, res) => {
-  try {
-    const deleted = db.deleteBot(req.params.botId);
-    if (!deleted) return res.status(404).json({ error: 'Bot not found' });
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/bots/generate', aiLimiter, validate(schemas.generateBots), async (req, res) => {
-  try {
-    const count = req.body.count;
-    const cap = 50; // Cap to 50 for LLM generation
-    const n = Math.min(count, cap);
-
-    // Batch generate bots using Promise.all
-    const newBots = await Promise.all(
-      Array.from({ length: n }).map(() => generateSingleBot())
-    );
-    
-    db.insertBotsBulk(newBots);
-
-    res.json({ success: true, count: n, capped: count > cap, sample: newBots[0] });
-  } catch (error) {
-    console.error('Generate bots error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/bots/:botId/favorite', (req, res) => {
-  try {
-    db.toggleFavorite(req.params.botId);
-    const bot = db.getBot(req.params.botId);
-    res.json({ success: true, favorite: bot?.favorite ?? false });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Conversations ---------------------------------------------------------
-app.get('/api/bots/:botId/conversations', (req, res) => {
-  try {
-    res.json(db.getConversations(req.params.botId));
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Preferred REST style: create a conversation under a bot.
-app.post('/api/bots/:botId/conversations', validate(schemas.createConversationUnderBot), (req, res) => {
-  try {
-    const id = req.body.id || Math.random().toString(36).substring(2, 11);
-    const title = req.body.title || 'New Conversation';
-    const createdAt = req.body.createdAt || Date.now();
-    db.createConversation(id, req.params.botId, title, createdAt);
-    res.json({ id, botId: req.params.botId, title, createdAt });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Backwards-compatible endpoint (frontend currently posts here).
-app.post('/api/conversations', validate(schemas.createConversation), (req, res) => {
-  try {
-    const { id, botId, title, createdAt } = req.body;
-    db.createConversation(id, botId, title || 'New Conversation', createdAt || Date.now());
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.patch('/api/conversations/:convId', validate(schemas.renameConversation), (req, res) => {
-  try {
-    db.renameConversation(req.params.convId, req.body.title);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete('/api/conversations/:convId', (req, res) => {
-  try {
-    db.deleteConversation(req.params.convId);
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/conversations/:convId/messages', (req, res) => {
-  try {
-    res.json(db.getMessages(req.params.convId));
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// --- Chat ------------------------------------------------------------------
-app.post('/api/chat', aiLimiter, validate(schemas.chat), async (req, res) => {
-  try {
-    const { botId, conversationId, message } = req.body;
-    const response = await generateChatResponse(botId, conversationId, message);
-    res.json(response);
-  } catch (error) {
-    console.error('Chat error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/chat/regenerate', aiLimiter, validate(schemas.regenerate), async (req, res) => {
-  try {
-    const { botId, conversationId } = req.body;
-    const response = await regenerateChatResponse(botId, conversationId);
-    res.json(response);
-  } catch (error) {
-    console.error('Regenerate error:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
+// --- API routes -----------------------------------------------------------------
+app.use('/api/health', healthRoutes);
+app.use('/api/bots', botRoutes);
+app.use('/api/conversations', conversationRoutes);
+app.use('/api/chat', chatRoutes);
 
 // --- Static frontend (production) -------------------------------------------
 // Serves the Vite build output so one service hosts the whole app.
