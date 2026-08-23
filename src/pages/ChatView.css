@@ -451,3 +451,15 @@
   .cv-sidebar, .cv-header, .cv-composer, .cv-ctx, .cv-toolbar, .cv-showcase, .cv-error, .cv-regen { display: none !important; }
   .cv-row { break-inside: avoid; }
 }
+
+/* ---- Guard explainability panel (Checkpoint 10) ---- */
+.cv-guard-panel {
+  margin: 0.4rem 1.2rem 0;
+  padding: 0.8rem 1rem;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
+  font-size: 0.8rem;
+}
+.cv-guard-panel p { color: var(--c-muted); }
+.cv-guard-panel b { color: var(--c-text); }

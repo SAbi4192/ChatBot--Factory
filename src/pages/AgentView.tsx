@@ -79,7 +79,7 @@ export default function AgentView() {
     } catch (e) { toast.error((e as Error).message); }
   };
 
-  const useCanned = (text: string) => setReplyText(text);
+  const applyCanned = (text: string) => setReplyText(text);
 
   return (
     <div>
@@ -133,7 +133,7 @@ export default function AgentView() {
               {/* Canned responses */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.5rem' }}>
                 {active.canned.map((c) => (
-                  <button key={c.id} className="bot-provenance" style={{ cursor: 'pointer' }} onClick={() => useCanned(c.text)} title={c.text}>
+                  <button key={c.id} className="bot-provenance" style={{ cursor: 'pointer' }} onClick={() => applyCanned(c.text)} title={c.text}>
                     {c.label}
                   </button>
                 ))}

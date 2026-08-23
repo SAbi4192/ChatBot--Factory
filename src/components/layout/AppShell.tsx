@@ -6,6 +6,8 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { CommandPalette } from '../CommandPalette';
 import { ShortcutsOverlay } from '../ShortcutsOverlay';
+import OnboardingTour from '../OnboardingTour';
+import { useAuth } from '../../auth/AuthContext';
 
 const MOBILE_TABS = [
   { to: '/', label: 'Home', icon: Home },
@@ -17,8 +19,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // First-run onboarding tour (dismissed forever once completed).
+  useEffect(() => {
+    if (!user) return;
+    const key = `cbf:tour:${user.id}`;
+    if (!localStorage.getItem(key)) {
+      const t = setTimeout(() => {
+        setTourOpen(true);
+        localStorage.setItem(key, 'done');
+      }, 900);
+      return () => clearTimeout(t);
+    }
+  }, [user]);
 
   const toggleSidebar = useCallback(() => setCollapsed((c) => !c), []);
 
@@ -74,6 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <CommandPalette open={searchOpen} onClose={() => setSearchOpen(false)} />
       <ShortcutsOverlay open={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
     </div>
   );
 }

@@ -1,0 +1,3 @@
+node node_modules/oxlint/bin/oxlint
+node node_modules/typescript/bin/tsc --noEmit
+node node_modules/vitest/vitest.mjs run

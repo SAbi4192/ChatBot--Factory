@@ -73,6 +73,7 @@ export default function ChatView() {
   const [summary, setSummary] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [showGuard, setShowGuard] = useState(false);
 
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
@@ -473,6 +474,21 @@ export default function ChatView() {
           <div className="cv-ctx" title={`~${ctxUsed.toLocaleString()} tokens used of ~${CTX_WINDOW_TOKENS.toLocaleString()} window`}>
             <div className="cv-ctx-bar"><div className="cv-ctx-fill" style={{ width: `${ctxPct}%` }} /></div>
             <span className="cv-ctx-label mono">context {ctxPct}%</span>
+            <button className="cv-act" style={{ padding: '0.1rem 0.4rem', fontSize: '0.62rem' }} onClick={() => setShowGuard(o => !o)} title="Why did the guard allow/refuse?">
+              <ShieldAlert style={{ width: 12, height: 12 }} /> guard
+            </button>
+          </div>
+        )}
+
+        {/* Domain Guard explainability panel (dev toggle) */}
+        {showGuard && (
+          <div className="cv-guard-panel" role="region" aria-label="Domain Guard explainability">
+            <span className="cv-summary-label mono">DOMAIN GUARD — HOW IT DECIDED</span>
+            <div style={{ marginTop: '0.5rem', display: 'grid', gap: '0.3rem', fontSize: '0.78rem', lineHeight: 1.6 }}>
+              <p><b>Layer order:</b> 0 Greetings → 1 Own-field evidence → 2 Foreign-field redirect → 3 Context follow-up → 4 LLM classifier → 5 Default allow</p>
+              <p><b>Positive off-topic detection:</b> unusual questions are never false-refused — they're classified, not blocked.</p>
+              <p><b>This conversation:</b> {messages.filter(m => m.provider === 'domain-guard').length} redirect(s) fired. Greetings answer from the bot profile instantly (no AI cost).</p>
+            </div>
           </div>
         )}
 

@@ -1,0 +1,41 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: "file:../data/chatbot_factory.db"
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me}
+      AI_PROVIDER: auto
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      CORS_ORIGINS: ""
+    volumes:
+      - app-data:/app/data
+    depends_on:
+      llm:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  # Local GGUF model server (llama-cpp-python)
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    command: ["-m", "/models/llm-model.gguf", "--host", "0.0.0.0", "--port", "8000", "-c", "4096"]
+    volumes:
+      - ../models:/models:ro
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  app-data:
