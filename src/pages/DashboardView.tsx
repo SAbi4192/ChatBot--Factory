@@ -112,11 +112,12 @@ export default function DashboardView() {
     <div>
       {/* Welcome banner */}
       <motion.section
-        className="dash-hero glass-card"
+        className="dash-hero glass-card dash-hero-glow"
         initial={{ opacity: 0, y: 14 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
       >
+        <div className="dash-hero-orbit" aria-hidden="true" />
         <h1>{greeting} — welcome to the factory floor.</h1>
         <p>
           {stats.total > 0
@@ -211,7 +212,7 @@ export default function DashboardView() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.06 * i, duration: 0.3 }}
                 >
-                  <button className="dash-bot-mini ui-card ui-card--hover" onClick={() => navigate(`/chat/${b.id}`)}>
+                  <button className="dash-bot-mini ui-card ui-card--hover" onClick={() => navigate(`/chat/${b.id}`)} style={{ borderLeft: `3px solid ${b.designDna?.primaryColor || 'var(--border-hover)'}` }}>
                     <Avatar
                       name={b.name}
                       bg={b.designDna?.primaryColor}

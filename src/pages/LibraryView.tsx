@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Bot } from '../types';
 import { db } from '../services/db';
-import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Factory, ArrowRight, Bot as BotIcon, Wand2 } from 'lucide-react';
+import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Factory, ArrowRight, Bot as BotIcon, Wand2, Pencil } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -37,6 +37,7 @@ export default function LibraryView() {
   const [filter, setFilter] = useState<Filter>('all');
   const [visible, setVisible] = useState(PAGE);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Bot | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -89,6 +90,29 @@ export default function LibraryView() {
     toast.success('Factory floor wiped clean — all bots and conversations deleted.');
     navigate('/');
   };
+
+  const handleDeleteBot = async (bot: Bot) => {
+    setConfirmDelete(null);
+    try {
+      await db.deleteBot(bot.id);
+      setBots(prev => prev.filter(b => b.id !== bot.id));
+      toast.success(`Deleted "${bot.name}"`);
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
+  };
+
+  /** 3D tilt on hover — sets CSS vars the card transform consumes. */
+  const tilt = (e: React.MouseEvent<HTMLElement>) => {
+    const el = e.currentTarget;
+    const r = el.getBoundingClientRect();
+    const px = (e.clientX - r.left) / r.width - 0.5;
+    const py = (e.clientY - r.top) / r.height - 0.5;
+    el.style.setProperty('--rx', `${(-py * 6).toFixed(2)}deg`);
+    el.style.setProperty('--ry', `${(px * 8).toFixed(2)}deg`);
+  };
+
+  const isNew = (bot: Bot) => Date.now() - bot.createdAt < 24 * 60 * 60 * 1000;
 
   return (
     <div className="lib">
@@ -175,7 +199,16 @@ export default function LibraryView() {
               {shown.map(bot => {
                 const d = bot.designDna || ({} as Bot['designDna']);
                 return (
-                  <article key={bot.id} className="bot-card" onClick={() => navigate(`/chat/${bot.id}`)}>
+                  <article
+                    key={bot.id}
+                    className={`bot-card ${isNew(bot) ? 'is-new' : ''} ${(bot.conversationCount ?? 0) > 0 ? 'is-active' : ''}`}
+                    onClick={() => navigate(`/chat/${bot.id}`)}
+                    onMouseMove={tilt}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.setProperty('--rx', '0deg');
+                      e.currentTarget.style.setProperty('--ry', '0deg');
+                    }}
+                  >
                     <div className="bot-card-top">
                       <span
                         className="bot-mono"
@@ -213,6 +246,19 @@ export default function LibraryView() {
                         <MessageSquare /> {bot.conversationCount || 0}
                       </span>
                     </div>
+
+                    {/* quick-action overlay */}
+                    <div className="bot-actions" onClick={(e) => e.stopPropagation()}>
+                      <button title="Chat" onClick={() => navigate(`/chat/${bot.id}`)} aria-label={`Chat with ${bot.name}`}>
+                        <MessageSquare />
+                      </button>
+                      <button title="Edit" onClick={() => navigate(`/bot/${bot.id}/edit`)} aria-label={`Edit ${bot.name}`}>
+                        <Pencil />
+                      </button>
+                      <button title="Delete" onClick={() => setConfirmDelete(bot)} aria-label={`Delete ${bot.name}`}>
+                        <Trash2 />
+                      </button>
+                    </div>
                   </article>
                 );
               })}
@@ -236,6 +282,15 @@ export default function LibraryView() {
         confirmLabel="Delete everything"
         onConfirm={handleReset}
         onCancel={() => setConfirmReset(false)}
+      />
+
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        title={`Delete "${confirmDelete?.name ?? ''}"?`}
+        message="This bot, its conversations, and its messages will be permanently deleted."
+        confirmLabel="Delete bot"
+        onConfirm={() => confirmDelete && handleDeleteBot(confirmDelete)}
+        onCancel={() => setConfirmDelete(null)}
       />
     </div>
   );

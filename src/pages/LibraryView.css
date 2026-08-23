@@ -137,14 +137,99 @@
   border-radius: var(--radius);
   padding: 1.25rem 1.25rem 1.1rem;
   cursor: pointer;
-  transition: transform 0.16s var(--ease), border-color 0.18s var(--ease), box-shadow 0.2s var(--ease);
+  transform: perspective(700px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+  transform-style: preserve-3d;
+  transition: transform 0.25s var(--ease), border-color 0.18s var(--ease), box-shadow 0.2s var(--ease);
   animation: libUp 0.4s var(--ease) both;
 }
-.bot-card:hover {
-  transform: translateY(-3px);
-  border-color: var(--line-2);
-  box-shadow: var(--shadow);
+.bot-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(245, 177, 61, 0.55), rgba(56, 189, 248, 0.25), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.25s var(--ease);
+  pointer-events: none;
 }
+.bot-card:hover {
+  border-color: transparent;
+  box-shadow: var(--shadow-lg), 0 0 24px rgba(245, 177, 61, 0.08);
+  z-index: 2;
+}
+.bot-card:hover::before { opacity: 1; }
+
+/* "New" badge — recently manufactured (< 24h) */
+.bot-card.is-new::after {
+  content: 'NEW';
+  position: absolute;
+  top: 10px;
+  right: -6px;
+  padding: 0.2rem 0.55rem;
+  border-radius: 5px 0 0 5px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-hover));
+  color: #1a1205;
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  box-shadow: 0 4px 12px rgba(245, 177, 61, 0.4);
+  z-index: 3;
+}
+
+/* active pulse dot — has conversations */
+.bot-card.is-active .bot-domain::after {
+  content: '';
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  margin-left: 7px;
+  vertical-align: 2px;
+  box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6);
+  animation: pulseDot 2s infinite;
+}
+@keyframes pulseDot {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); }
+  70% { box-shadow: 0 0 0 6px rgba(52, 211, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+
+/* quick-action overlay (chat / edit / delete) */
+.bot-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  display: flex;
+  gap: 3px;
+  padding: 4px;
+  border-radius: 9px;
+  background: var(--panel-3);
+  border: 1px solid var(--line-2);
+  box-shadow: var(--shadow-md);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+  z-index: 4;
+}
+.bot-card:hover .bot-actions { opacity: 1; transform: translateY(0); }
+.bot-actions button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  color: var(--fg-dim);
+  transition: background 0.13s, color 0.13s;
+}
+.bot-actions button:hover { background: var(--panel-2); color: var(--fg); }
+.bot-actions button:last-child:hover { color: var(--bad); background: rgba(240, 102, 79, 0.12); }
+.bot-actions svg { width: 14px; height: 14px; }
 
 .bot-card-top {
   display: flex;

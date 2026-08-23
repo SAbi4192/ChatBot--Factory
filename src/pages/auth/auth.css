@@ -21,6 +21,22 @@
   pointer-events: none;
 }
 
+/* floating aurora blobs */
+.auth-page::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(420px 240px at 78% 22%, rgba(192, 132, 252, 0.07), transparent 60%),
+    radial-gradient(380px 260px at 20% 82%, rgba(52, 211, 153, 0.05), transparent 60%);
+  animation: authBlob 14s ease-in-out infinite alternate;
+}
+@keyframes authBlob {
+  from { opacity: 0.6; transform: translate3d(0, 0, 0) scale(1); }
+  to { opacity: 1; transform: translate3d(-30px, 20px, 0) scale(1.08); }
+}
+
 /* animated engineering grid */
 .auth-grid {
   position: fixed;
@@ -47,6 +63,18 @@
   -webkit-backdrop-filter: blur(20px) saturate(170%);
   border: 1px solid var(--glass-border);
   box-shadow: var(--shadow-xl), 0 0 80px rgba(245, 177, 61, 0.05);
+}
+.auth-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(140deg, rgba(245, 177, 61, 0.5), transparent 30%, transparent 70%, rgba(96, 165, 250, 0.4));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
 }
 
 .auth-brand { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1.6rem; }

@@ -1,3 +1,6 @@
-node node_modules/oxlint/bin/oxlint
-node node_modules/typescript/bin/tsc --noEmit
-node node_modules/vitest/vitest.mjs run
+#!/usr/bin/env sh
+# Pre-commit: lint + typecheck + tests. Runs via git hooks (core.hooksPath=.husky).
+# NOTE: keep LF line endings — CRLF breaks git-bash on Windows.
+node node_modules/oxlint/bin/oxlint || exit 1
+node node_modules/typescript/bin/tsc -b --noEmit || exit 1
+node node_modules/vitest/vitest.mjs run || exit 1

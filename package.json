@@ -22,8 +22,7 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "db:migrate-legacy": "node scripts/migrate-legacy-data.mjs",
-    "prepare": "husky"
+    "db:migrate-legacy": "node scripts/migrate-legacy-data.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.18.0",

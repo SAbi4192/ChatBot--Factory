@@ -43,9 +43,15 @@ export function createApp() {
     .map((o) => o.trim())
     .filter(Boolean);
 
+  // Dev-friendly: any localhost / 127.0.0.1 origin (any port) is always
+  // allowed — covers Vite on :5173 and the widget test pages. The explicit
+  // allowlist adds non-local origins (e.g. deployed widget hosts).
+  const isLocal = (origin) =>
+    /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
+
   app.use(cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      if (!origin || isLocal(origin) || allowedOrigins.includes(origin)) return callback(null, true);
       callback(new Error(`Not allowed by CORS: ${origin}`));
     },
   }));
