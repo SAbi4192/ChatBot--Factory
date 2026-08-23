@@ -27,3 +27,12 @@ export const aiLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'AI request limit reached — try again in a minute.' },
 });
+
+/** Auth endpoint limiter — 20 attempts per minute per IP (brute-force guard). */
+export const authLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many auth attempts — try again in a minute.' },
+});

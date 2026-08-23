@@ -37,10 +37,12 @@ model Bot {
   starterQuestions Json?   @map("starter_questions")
   domainProfile   Json?    @map("domain_profile")
   favorite        Boolean  @default(false)
-  createdAt       DateTime @map("created_at")
+  createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @map("updated_at")
   creationMethod  String   @default("factory") @map("creation_method")
+  orgId           String?  @map("org_id")
 
+  org              Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
   conversations    Conversation[]
   knowledgeBases   KnowledgeBase[]
   botVersions      BotVersion[]
@@ -55,7 +57,7 @@ model Conversation {
   id        String   @id
   botId     String   @map("bot_id")
   title     String?
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @map("updated_at")
 
   bot      Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
@@ -71,7 +73,7 @@ model Message {
   content        String
   provider       String   @default("local")
   sources        Json?
-  createdAt      DateTime @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   // Forward-looking fields used by later checkpoints (streaming, NLU,
   // analytics). Nullable so legacy rows migrate cleanly.
@@ -95,13 +97,15 @@ model User {
   avatar       String?
   role         String   @default("viewer")
   passwordHash String?  @map("password_hash")
-  createdAt    DateTime @map("created_at")
-  updatedAt    DateTime @map("updated_at")
+  tokenVersion Int      @default(0) @map("token_version")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
 
   memberships        OrgMember[]
   ownedOrganizations Organization[]
   agentSessions      AgentSession[]
   feedback           Feedback[]
+  invitesUsed        Invite[]
 
   @@map("users")
 }
@@ -112,13 +116,35 @@ model Organization {
   slug      String   @unique
   ownerId   String   @map("owner_id")
   plan      String   @default("free")
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Usage quotas (demo plans; adjustable per org)
+  maxBots           Int @default(200)  @map("max_bots")
+  maxMessagesPerDay Int @default(500)  @map("max_messages_per_day")
+  maxMembers        Int @default(10)   @map("max_members")
 
   owner             User               @relation(fields: [ownerId], references: [id])
   members           OrgMember[]
+  bots              Bot[]
+  invites           Invite[]
   embeddableConfigs EmbeddableConfig[]
 
   @@map("organizations")
+}
+
+model Invite {
+  id        String   @id
+  orgId     String   @map("org_id")
+  code      String   @unique
+  role      String   @default("viewer")
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  usedBy    String?  @map("used_by")
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User?        @relation(fields: [usedBy], references: [id], onDelete: SetNull)
+
+  @@map("invites")
 }
 
 model OrgMember {
@@ -141,7 +167,7 @@ model KnowledgeBase {
   botId     String   @map("bot_id")
   name      String
   type      String   @default("upload")
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   bot       Bot                 @relation(fields: [botId], references: [id], onDelete: Cascade)
   documents KnowledgeDocument[]
@@ -156,7 +182,7 @@ model KnowledgeDocument {
   name      String
   status    String   @default("processing") // processing | ready | failed
   chunkCount Int     @default(0) @map("chunk_count")
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   kb     KnowledgeBase     @relation(fields: [kbId], references: [id], onDelete: Cascade)
   chunks KnowledgeChunk[]
@@ -171,7 +197,7 @@ model KnowledgeChunk {
   content   String
   embedding Json?
   metadata  Json?
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   kb  KnowledgeBase     @relation(fields: [kbId], references: [id], onDelete: Cascade)
   doc KnowledgeDocument? @relation(fields: [docId], references: [id], onDelete: Cascade)
@@ -184,9 +210,10 @@ model KnowledgeChunk {
 model AnalyticsEvent {
   id        String   @id
   botId     String?  @map("bot_id")
+  orgId     String?  @map("org_id")
   eventType String   @map("event_type")
   data      Json?
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   bot Bot? @relation(fields: [botId], references: [id], onDelete: Cascade)
 
@@ -199,7 +226,7 @@ model Feedback {
   userId    String?  @map("user_id")
   rating    Int
   comment   String?
-  createdAt DateTime @map("created_at")
+  createdAt DateTime @default(now()) @map("created_at")
 
   message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
   user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
@@ -215,7 +242,7 @@ model AgentSession {
   conversationId String    @map("conversation_id")
   agentUserId    String?   @map("agent_user_id")
   status         String    @default("queued") // queued | active | closed
-  createdAt      DateTime  @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
   closedAt       DateTime? @map("closed_at")
 
   bot  Bot?  @relation(fields: [botId], references: [id], onDelete: Cascade)
@@ -231,7 +258,7 @@ model BotVersion {
   botId          String   @map("bot_id")
   version        Int
   configSnapshot Json     @map("config_snapshot")
-  createdAt      DateTime @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
 
@@ -244,7 +271,7 @@ model EmbeddableConfig {
   orgId          String?  @map("org_id")
   allowedOrigins Json?    @map("allowed_origins")
   themeOverrides Json?    @map("theme_overrides")
-  createdAt      DateTime @map("created_at")
+  createdAt      DateTime @default(now()) @map("created_at")
 
   bot  Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
   org  Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)

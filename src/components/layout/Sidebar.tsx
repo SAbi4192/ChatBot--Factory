@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   Factory, LayoutDashboard, Bot, BarChart3, LayoutTemplate,
-  Settings, PanelLeftClose, PanelLeftOpen, Factory as LogoIcon,
+  PanelLeftClose, PanelLeftOpen, Factory as LogoIcon,
+  ChevronsUpDown, User as UserIcon, LogOut, Building2, Check,
 } from 'lucide-react';
+import { useAuth } from '../../auth/AuthContext';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -14,7 +17,6 @@ const NAV_ITEMS = [
 const NAV_UPCOMING = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3, soon: true },
   { to: '/templates', label: 'Templates', icon: LayoutTemplate, soon: true },
-  { to: '/settings', label: 'Settings', icon: Settings, soon: true },
 ];
 
 interface SidebarProps {
@@ -24,6 +26,11 @@ interface SidebarProps {
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const navigate = useNavigate();
+  const { user, orgs, currentOrg, switchOrg, logout } = useAuth();
+  const [orgOpen, setOrgOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(false);
+
+  const initials = (user?.name || user?.email || '?').slice(0, 2).toUpperCase();
 
   const renderLink = ({ to, label, icon: Icon, end, soon }: typeof NAV_ITEMS[number] & { soon?: boolean }) => (
     <NavLink
@@ -64,6 +71,51 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         )}
       </div>
 
+      {/* Org switcher */}
+      {!collapsed && (
+        <div className="side-org-wrap">
+          <button className="side-org" onClick={() => setOrgOpen((o) => !o)} aria-expanded={orgOpen} aria-haspopup="listbox">
+            <span className="side-org-icon"><Building2 /></span>
+            <span className="side-org-meta">
+              <span className="side-org-name">{currentOrg?.name ?? 'No workspace'}</span>
+              <span className="side-org-role mono">{currentOrg?.role ?? '—'}</span>
+            </span>
+            <ChevronsUpDown className="side-org-chev" />
+          </button>
+          <AnimatePresence>
+            {orgOpen && (
+              <motion.div
+                className="side-org-menu"
+                role="listbox"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.14 }}
+              >
+                {orgs.map((org) => (
+                  <button
+                    key={org.id}
+                    role="option"
+                    aria-selected={org.id === currentOrg?.id}
+                    className={`side-org-opt ${org.id === currentOrg?.id ? 'active' : ''}`}
+                    onClick={() => { switchOrg(org.id); setOrgOpen(false); }}
+                  >
+                    <span className="side-org-opt-name">{org.name}</span>
+                    {org.id === currentOrg?.id && <Check style={{ width: 14, height: 14 }} />}
+                  </button>
+                ))}
+                <button
+                  className="side-org-opt"
+                  onClick={() => { setOrgOpen(false); navigate('/settings/org'); }}
+                >
+                  <span className="side-org-opt-name" style={{ color: 'var(--accent)' }}>+ New workspace…</span>
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
       <nav className="app-side-nav">
         {NAV_ITEMS.map(renderLink)}
         {!collapsed && (
@@ -75,6 +127,41 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </nav>
 
       <div className="app-side-foot">
+        {/* User menu */}
+        <div className="side-user-wrap">
+          <button className="side-user" onClick={() => setUserOpen((o) => !o)} aria-expanded={userOpen} aria-haspopup="menu">
+            <span className="side-user-avatar">{initials}</span>
+            {!collapsed && (
+              <span className="side-user-meta">
+                <span className="side-user-name">{user?.name || user?.email}</span>
+                <span className="side-user-role mono">{user?.role}</span>
+              </span>
+            )}
+          </button>
+          <AnimatePresence>
+            {userOpen && (
+              <motion.div
+                className="side-user-menu"
+                role="menu"
+                initial={{ opacity: 0, y: -6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.14 }}
+              >
+                <button role="menuitem" onClick={() => { setUserOpen(false); navigate('/settings'); }}>
+                  <UserIcon /> Account settings
+                </button>
+                <button role="menuitem" onClick={() => { setUserOpen(false); navigate('/settings/org'); }}>
+                  <Building2 /> Organization
+                </button>
+                <button role="menuitem" className="danger" onClick={() => { setUserOpen(false); logout(); navigate('/login'); }}>
+                  <LogOut /> Sign out
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <button className="app-side-collapse" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
           {collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}
           {!collapsed && <span>Collapse</span>}

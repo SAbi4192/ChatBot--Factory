@@ -10,10 +10,7 @@
  * are stored as DateTime and converted to epoch-ms here, so the API contract
  * with the frontend never changes.
  */
-import { PrismaClient } from '@prisma/client';
-import './loadEnv.js';
-
-const prisma = new PrismaClient();
+import { prisma } from './prisma.js';
 
 // --- Field mappers: Prisma row -> frontend shape (camelCase, epoch-ms) --------
 
@@ -64,20 +61,38 @@ function mapMessageToFrontend(m) {
 
 // --- Repository: bots ---------------------------------------------------------
 
-const getBots = async () => {
+// Every bot query is scoped by orgId — multi-tenancy is enforced at the data
+// layer, not just by route middleware.
+
+const getBots = async (orgId) => {
   const bots = await prisma.bot.findMany({
+    where: { orgId },
     orderBy: { createdAt: 'desc' },
     include: { _count: { select: { conversations: true } } },
   });
   return bots.map(mapBotToFrontend);
 };
 
-const getBot = async (id) => {
-  const bot = await prisma.bot.findUnique({ where: { id } });
+const getBot = async (id, orgId) => {
+  const bot = await prisma.bot.findFirst({ where: { id, orgId } });
   return bot ? mapBotToFrontend(bot) : null;
 };
 
-const insertBotsBulk = async (bots) => {
+/** True when the bot exists and belongs to the given org. */
+const botInOrg = async (botId, orgId) => {
+  const count = await prisma.bot.count({ where: { id: botId, orgId } });
+  return count > 0;
+};
+
+/** True when the conversation exists and its bot belongs to the given org. */
+const conversationInOrg = async (convId, orgId) => {
+  const count = await prisma.conversation.count({
+    where: { id: convId, bot: { orgId } },
+  });
+  return count > 0;
+};
+
+const insertBotsBulk = async (bots, orgId) => {
   await prisma.$transaction(
     bots.map((b) =>
       prisma.bot.create({
@@ -95,6 +110,7 @@ const insertBotsBulk = async (bots) => {
           welcomeMessage: b.welcomeMessage,
           starterQuestions: b.starterQuestions ?? [],
           domainProfile: b.domainProfile ?? null,
+          orgId,
           createdAt: new Date(b.createdAt ?? Date.now()),
           updatedAt: new Date(b.createdAt ?? Date.now()),
         },
@@ -103,17 +119,19 @@ const insertBotsBulk = async (bots) => {
   );
 };
 
-const toggleFavorite = async (id) => {
-  const bot = await prisma.bot.findUnique({ where: { id } });
+const toggleFavorite = async (id, orgId) => {
+  const bot = await prisma.bot.findFirst({ where: { id, orgId } });
   if (!bot) return;
   await prisma.bot.update({ where: { id }, data: { favorite: !bot.favorite } });
 };
 
-const deleteAll = async () => {
+const deleteAll = async (orgId) => {
+  const botIds = await prisma.bot.findMany({ where: { orgId }, select: { id: true } });
+  const ids = botIds.map((b) => b.id);
   await prisma.$transaction([
-    prisma.message.deleteMany(),
-    prisma.conversation.deleteMany(),
-    prisma.bot.deleteMany(),
+    prisma.message.deleteMany({ where: { conversation: { botId: { in: ids } } } }),
+    prisma.conversation.deleteMany({ where: { botId: { in: ids } } }),
+    prisma.bot.deleteMany({ where: { orgId } }),
   ]);
 };
 
@@ -179,8 +197,8 @@ const deleteMessage = async (id) => {
 };
 
 // Cascade to conversations + messages is enforced by the schema.
-const deleteBot = async (id) => {
-  const existing = await prisma.bot.findUnique({ where: { id } });
+const deleteBot = async (id, orgId) => {
+  const existing = await prisma.bot.findFirst({ where: { id, orgId } });
   if (!existing) return false;
   await prisma.bot.delete({ where: { id } });
   return true;
@@ -189,6 +207,8 @@ const deleteBot = async (id) => {
 export default {
   getBots,
   getBot,
+  botInOrg,
+  conversationInOrg,
   insertBotsBulk,
   toggleFavorite,
   deleteAll,

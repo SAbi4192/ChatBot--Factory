@@ -9,7 +9,12 @@ import helmet from 'helmet';
 
 import { apiLimiter } from './middleware/rateLimits.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { requireAuth } from './middleware/auth.js';
+import { bootstrapIfNeeded } from './services/auth.service.js';
+
 import healthRoutes from './routes/health.routes.js';
+import authRoutes from './routes/auth.routes.js';
+import orgRoutes from './routes/orgs.routes.js';
 import botRoutes from './routes/bots.routes.js';
 import conversationRoutes from './routes/conversations.routes.js';
 import chatRoutes from './routes/chat.routes.js';
@@ -22,9 +27,6 @@ const app = express();
 app.use(helmet({ contentSecurityPolicy: false }));
 
 // --- CORS allowlist -----------------------------------------------------------
-// Same-origin requests (Vite dev proxy, production static serving) carry no
-// Origin header and are always allowed. Cross-origin requests must come from
-// an origin listed in CORS_ORIGINS (comma-separated).
 const allowedOrigins = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((o) => o.trim())
@@ -41,11 +43,15 @@ app.use(cors({
 app.use('/api', apiLimiter);
 app.use(express.json({ limit: '2mb' }));
 
-// --- API routes -----------------------------------------------------------------
+// --- Public routes ---------------------------------------------------------------
 app.use('/api/health', healthRoutes);
-app.use('/api/bots', botRoutes);
-app.use('/api/conversations', conversationRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/auth', authRoutes);
+
+// --- Protected API routes (JWT + org scoping) -------------------------------------
+app.use('/api/orgs', requireAuth, orgRoutes);
+app.use('/api/bots', requireAuth, botRoutes);
+app.use('/api/conversations', requireAuth, conversationRoutes);
+app.use('/api/chat', requireAuth, chatRoutes);
 
 // --- Static frontend (production) -------------------------------------------
 // Serves the Vite build output so one service hosts the whole app.
@@ -54,14 +60,18 @@ const distDir = path.join(__dirname, '..', 'dist');
 app.use(express.static(distDir));
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`\n🏭  Universal Chatbot Factory backend running on http://localhost:${PORT}`);
-  console.log(`    AI mode: ${process.env.AI_PROVIDER || 'auto'}`);
-});
+
+// First-run bootstrap (legacy bots -> admin account) before serving traffic.
+bootstrapIfNeeded()
+  .catch((err) => console.error('[bootstrap] failed:', err.message))
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`\n🏭  Universal Chatbot Factory backend running on http://localhost:${PORT}`);
+      console.log(`    AI mode: ${process.env.AI_PROVIDER || 'auto'}`);
+    });
+  });
 
 // --- SPA fallback (must stay after all API routes) ----------------------------
-// Client-side routes (e.g. /chat/<id>) resolve to index.html; unknown API
-// paths still get a JSON 404 instead of HTML.
 app.use((req, res) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json({ error: 'Not found' });
@@ -70,6 +80,4 @@ app.use((req, res) => {
 });
 
 // --- Central error handler (must be LAST) --------------------------------------
-// Catches CORS rejections, malformed JSON, ApiErrors, and anything else, and
-// answers with a consistent JSON shape without leaking internals.
 app.use(errorHandler);

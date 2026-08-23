@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowRight, Bot as BotIcon, Factory, MessageSquare, Sparkles, BarChart3,
-  LayoutTemplate, Cpu, Globe, ShieldCheck, Lightbulb, ChevronRight,
+  LayoutTemplate, Cpu, Globe, ShieldCheck, Lightbulb, ChevronRight, Building2,
 } from 'lucide-react';
 import type { Bot, Conversation } from '../types';
-import { db } from '../services/db';
-import type { ProviderStatus } from '../services/db';
+import { db, type ProviderStatus, type OrgSummary } from '../services/db';
+import { useAuth } from '../auth/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -38,9 +38,11 @@ function timeAgo(ms: number): string {
 
 export default function DashboardView() {
   const navigate = useNavigate();
+  const { currentOrg } = useAuth();
   const [bots, setBots] = useState<Bot[]>([]);
   const [loading, setLoading] = useState(true);
   const [health, setHealth] = useState<ProviderStatus | null>(null);
+  const [orgInfo, setOrgInfo] = useState<OrgSummary | null>(null);
   const [recentConvs, setRecentConvs] = useState<Array<{ conv: Conversation; bot: Bot }>>([]);
 
   useEffect(() => {
@@ -66,8 +68,11 @@ export default function DashboardView() {
       .catch(() => {})
       .finally(() => alive && setLoading(false));
     db.getHealth().then(setHealth).catch(() => setHealth(null));
+    if (currentOrg?.id) {
+      db.getOrg(currentOrg.id).then(setOrgInfo).catch(() => setOrgInfo(null));
+    }
     return () => { alive = false; };
-  }, []);
+  }, [currentOrg?.id]);
 
   const stats = useMemo(() => ({
     total: bots.length,
@@ -143,6 +148,41 @@ export default function DashboardView() {
           format={(n) => `${n}/3`}
         />
       </div>
+
+      {/* Workspace quota strip */}
+      {orgInfo && currentOrg && (
+        <Card style={{ marginBottom: '1.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.9rem' }}>
+            <Building2 style={{ width: 16, height: 16, color: 'var(--accent)' }} />
+            <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{currentOrg.name}</span>
+            <Badge tone="accent">{currentOrg.role}</Badge>
+            <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--fg-faint)' }}>
+              plan · {orgInfo.plan}
+            </span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+            {[
+              { label: 'Bots', used: orgInfo.usage.bots, max: orgInfo.limits.maxBots },
+              { label: 'Messages today', used: orgInfo.usage.messagesToday, max: orgInfo.limits.maxMessagesPerDay },
+              { label: 'Members', used: orgInfo.usage.members, max: orgInfo.limits.maxMembers },
+            ].map((q) => {
+              const pct = q.max > 0 ? Math.round((q.used / q.max) * 100) : 0;
+              const cls = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : 'ok';
+              return (
+                <div key={q.label}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.35rem' }}>
+                    <span style={{ color: 'var(--fg-dim)' }}>{q.label}</span>
+                    <span className="mono" style={{ color: 'var(--fg-faint)' }}>{q.used.toLocaleString()}/{q.max.toLocaleString()}</span>
+                  </div>
+                  <div className="qm-bar">
+                    <div className={`qm-fill ${cls}`} style={{ width: `${Math.min(100, pct)}%` }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       <div className="dash-grid-2">
         {/* Recent bots */}

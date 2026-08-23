@@ -37,15 +37,17 @@
 - ✅ Accessibility: ARIA, keyboard nav, focus trap, skip link, reduced motion, contrast
 - ✅ Responsive: mobile bottom tabs, tablet hamburger
 
-## Checkpoint 2 — Auth & Tenancy
+## Checkpoint 2 — Auth & Tenancy ✅ DONE
 
-- JWT access + refresh tokens with rotation, bcrypt passwords
-- Animated login/register pages, password strength meter, remember me
-- RBAC: Admin / Editor / Viewer, protected routes + middleware
-- Organizations (workspaces) with isolated bots/conversations/KB/analytics
-- Org switcher, org settings, invite links (no email server), org roles
-- Activity log (audit trail), usage quotas with meters (80% warn / 100% block)
-- Account settings: change password, display name, avatar
+> Commit: `ac084b2` (2.0)
+
+- ✅ JWT access + refresh tokens with rotation, bcrypt passwords
+- ✅ Animated login/register pages, password strength meter, remember me
+- ✅ RBAC: Admin / Editor / Viewer, protected routes + middleware
+- ✅ Organizations (workspaces) with isolated bots/conversations/KB/analytics
+- ✅ Org switcher, org settings, invite links (no email server), org roles
+- ✅ Activity log (audit trail), usage quotas with meters (80% warn / 100% block)
+- ✅ Account settings: change password, display name, avatar
 
 ## Checkpoint 3 — Custom Bot Creator ⭐ (flagship innovation)
 

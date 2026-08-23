@@ -1,4 +1,5 @@
 import type { Bot, Conversation, Message } from '../types';
+import * as tokens from '../auth/tokens';
 
 export interface ProviderStatus {
   ok?: boolean;
@@ -9,30 +10,85 @@ export interface ProviderStatus {
   localUrl?: string;
 }
 
+export interface OrgSummary {
+  id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  ownerId: string;
+  createdAt: number;
+  limits: { maxBots: number; maxMessagesPerDay: number; maxMembers: number };
+  usage: { bots: number; messagesToday: number; members: number };
+}
+
+/**
+ * Authenticated fetch: attaches the Bearer token + current org, and on a 401
+ * transparently refreshes the session once and retries the request.
+ */
+async function authFetch(path: string, init?: RequestInit): Promise<Response> {
+  const doFetch = (token: string | null, orgId: string | null) =>
+    fetch(path, {
+      ...init,
+      headers: {
+        ...(init?.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(init?.headers ?? {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(orgId ? { 'x-org-id': orgId } : {}),
+      },
+    });
+
+  let res = await doFetch(tokens.getAccessToken(), tokens.getOrgId());
+
+  if (res.status === 401 && !path.startsWith('/api/auth/')) {
+    const refreshToken = tokens.getRefreshToken();
+    if (refreshToken) {
+      try {
+        const r = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+        if (r.ok) {
+          const payload = await r.json();
+          tokens.saveTokens(payload.accessToken, payload.refreshToken, payload.remember ?? true);
+          if (payload.currentOrgId) tokens.saveOrgId(payload.currentOrgId);
+          res = await doFetch(payload.accessToken, payload.currentOrgId ?? tokens.getOrgId());
+        } else {
+          tokens.clearTokens();
+        }
+      } catch {
+        tokens.clearTokens();
+      }
+    }
+  }
+  return res;
+}
+
+async function json<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await authFetch(path, init);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = (err as { error?: string }).error || `Request failed (${res.status})`;
+    throw new Error(message);
+  }
+  return res.json();
+}
+
 export const db = {
   async getBots(): Promise<Bot[]> {
-    const res = await fetch('/api/bots');
-    if (!res.ok) throw new Error('Failed to load bots');
-    return res.json();
+    return json('/api/bots');
   },
 
   async getBot(id: string): Promise<Bot | undefined> {
     try {
-      const res = await fetch(`/api/bots/${id}`);
-      if (res.ok) return await res.json();
-      if (res.status !== 404) throw new Error('Failed to load bot');
-      // 404 falls through to the list-based fallback below.
+      return await json(`/api/bots/${id}`);
     } catch {
-      // Network/other error also falls through to the fallback.
-    }
-    // Safety net: an older/stale backend may not serve GET /api/bots/:id.
-    // The list endpoint powers the Library, so find the bot there instead —
-    // this keeps Library → Chat navigation working regardless of backend age.
-    try {
-      const all = await db.getBots();
-      return all.find(b => b.id === id);
-    } catch {
-      return undefined;
+      try {
+        const all = await db.getBots();
+        return all.find(b => b.id === id);
+      } catch {
+        return undefined;
+      }
     }
   },
 
@@ -52,13 +108,11 @@ export const db = {
 
     while (produced < count) {
       const n = Math.min(BATCH_SIZE, count - produced);
-      const res = await fetch('/api/bots/generate', {
+      const data = await json<{ count: number; sample?: Bot }>('/api/bots/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ count: n })
       });
-      if (!res.ok) throw new Error('Failed to generate bots');
-      const data = await res.json();
       if (!sample && data.sample) sample = data.sample;
       produced += data.count ?? n;
       onBatch?.(produced, count);
@@ -68,25 +122,20 @@ export const db = {
   },
 
   async deleteAllBots(): Promise<void> {
-    await fetch('/api/bots', { method: 'DELETE' });
+    await json('/api/bots', { method: 'DELETE' });
   },
 
   async deleteBot(botId: string): Promise<void> {
-    const res = await fetch(`/api/bots/${botId}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error('Failed to delete bot');
+    await json(`/api/bots/${botId}`, { method: 'DELETE' });
   },
 
   async toggleFavorite(botId: string): Promise<boolean> {
-    const res = await fetch(`/api/bots/${botId}/favorite`, { method: 'POST' });
-    if (!res.ok) throw new Error('Failed to toggle favorite');
-    const data = await res.json();
+    const data = await json<{ favorite: boolean }>(`/api/bots/${botId}/favorite`, { method: 'POST' });
     return !!data.favorite;
   },
 
   async getConversationsByBot(botId: string): Promise<Conversation[]> {
-    const res = await fetch(`/api/bots/${botId}/conversations`);
-    if (!res.ok) throw new Error('Failed to load conversations');
-    return res.json();
+    return json(`/api/bots/${botId}/conversations`);
   },
 
   async createConversation(botId: string, title: string = 'New Conversation'): Promise<Conversation> {
@@ -96,7 +145,7 @@ export const db = {
       title,
       createdAt: Date.now()
     };
-    await fetch('/api/conversations', {
+    await json('/api/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(conv)
@@ -105,7 +154,7 @@ export const db = {
   },
 
   async renameConversation(convId: string, title: string): Promise<void> {
-    await fetch(`/api/conversations/${convId}`, {
+    await json(`/api/conversations/${convId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title })
@@ -113,13 +162,11 @@ export const db = {
   },
 
   async deleteConversation(convId: string): Promise<void> {
-    await fetch(`/api/conversations/${convId}`, { method: 'DELETE' });
+    await json(`/api/conversations/${convId}`, { method: 'DELETE' });
   },
 
   async getMessages(conversationId: string): Promise<Message[]> {
-    const res = await fetch(`/api/conversations/${conversationId}/messages`);
-    if (!res.ok) throw new Error('Failed to load messages');
-    return res.json();
+    return json(`/api/conversations/${conversationId}/messages`);
   },
 
   async sendMessage(
@@ -127,37 +174,103 @@ export const db = {
     conversationId: string,
     message: string
   ): Promise<{ response: string; messageId: string; provider?: string; sources?: string[] | null }> {
-    const res = await fetch('/api/chat', {
+    return json('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ botId, conversationId, message })
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Chat request failed');
-    }
-    return res.json();
   },
 
   async regenerate(
     botId: string,
     conversationId: string
   ): Promise<{ response: string; messageId: string; provider?: string; sources?: string[] | null }> {
-    const res = await fetch('/api/chat/regenerate', {
+    return json('/api/chat/regenerate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ botId, conversationId })
     });
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'Regenerate request failed');
-    }
-    return res.json();
   },
 
   async getHealth(): Promise<ProviderStatus> {
-    const res = await fetch('/api/health');
-    if (!res.ok) throw new Error('Health check failed');
-    return res.json();
-  }
+    return json('/api/health');
+  },
+
+  // ---- Organizations (Checkpoint 2) ----
+  async getOrg(orgId: string): Promise<OrgSummary> {
+    return json(`/api/orgs/${orgId}`);
+  },
+
+  async getOrgMembers(orgId: string): Promise<Array<{ userId: string; email: string; name: string | null; role: string }>> {
+    return json(`/api/orgs/${orgId}/members`);
+  },
+
+  async createInvite(orgId: string, role = 'viewer'): Promise<{ code: string; role: string; expiresAt: number }> {
+    return json(`/api/orgs/${orgId}/invites`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role })
+    });
+  },
+
+  async joinOrg(code: string): Promise<{ orgId: string; orgName: string; role: string }> {
+    return json('/api/orgs/join', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+  },
+
+  async getOrgActivity(orgId: string): Promise<Array<{ id: string; eventType: string; data: unknown; createdAt: number }>> {
+    return json(`/api/orgs/${orgId}/activity`);
+  },
+
+  async createOrg(name: string): Promise<OrgSummary> {
+    return json('/api/orgs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+  },
+
+  async updateOrg(orgId: string, name: string): Promise<OrgSummary> {
+    return json(`/api/orgs/${orgId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    });
+  },
+
+  async deleteOrg(orgId: string): Promise<void> {
+    await json(`/api/orgs/${orgId}`, { method: 'DELETE' });
+  },
+
+  async setMemberRole(orgId: string, userId: string, role: string): Promise<void> {
+    await json(`/api/orgs/${orgId}/members/${userId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role })
+    });
+  },
+
+  async removeMember(orgId: string, userId: string): Promise<void> {
+    await json(`/api/orgs/${orgId}/members/${userId}`, { method: 'DELETE' });
+  },
+
+  // ---- Account (Checkpoint 2) ----
+  async updateProfile(name: string, avatar?: string): Promise<{ name: string | null; avatar: string | null }> {
+    return json('/api/auth/me', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, avatar })
+    });
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await json('/api/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currentPassword, newPassword })
+    });
+  },
 };

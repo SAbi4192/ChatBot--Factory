@@ -45,6 +45,54 @@ export const schemas = {
   renameConversation: z.object({
     title,
   }),
+
+  // ---- Auth ----
+  register: z.object({
+    email: z.string().trim().toLowerCase().email(),
+    name: z.string().trim().min(1).max(80).optional(),
+    password: z.string().min(8).max(128),
+  }),
+
+  login: z.object({
+    email: z.string().trim().toLowerCase().email(),
+    password: z.string().min(1).max(128),
+    remember: z.boolean().optional(),
+  }),
+
+  refresh: z.object({
+    refreshToken: z.string().min(1),
+  }),
+
+  updateProfile: z.object({
+    name: z.string().trim().min(1).max(80).optional(),
+    avatar: z.string().trim().max(200).optional(),
+  }),
+
+  changePassword: z.object({
+    currentPassword: z.string().min(1),
+    newPassword: z.string().min(8).max(128),
+  }),
+
+  // ---- Organizations ----
+  createOrg: z.object({
+    name: z.string().trim().min(2).max(80),
+  }),
+
+  updateOrg: z.object({
+    name: z.string().trim().min(2).max(80),
+  }),
+
+  createInvite: z.object({
+    role: z.enum(['admin', 'editor', 'viewer']).optional(),
+  }),
+
+  joinOrg: z.object({
+    code: z.string().trim().min(6).max(12),
+  }),
+
+  setMemberRole: z.object({
+    role: z.enum(['admin', 'editor', 'viewer']),
+  }),
 };
 
 /** Express middleware factory: validate req.body against a Zod schema. */
