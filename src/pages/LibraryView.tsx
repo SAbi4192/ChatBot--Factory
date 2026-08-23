@@ -8,6 +8,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { SkeletonCard } from '../components/ui/Skeleton';
+import { displayBotName } from '../utils/botName';
 import './LibraryView.css';
 
 type Filter = 'all' | 'recent' | 'favorites';
@@ -226,8 +227,8 @@ export default function LibraryView() {
                       </button>
                     </div>
 
-                    <h3 className="bot-name">{bot.name}</h3>
-                    <div className="bot-domain mono">{bot.domain} · {bot.subdomain}</div>
+                    <h3 className="bot-name">{displayBotName(bot)}</h3>
+                    <div className="bot-domain mono">{bot.subdomain}</div>
                     {bot.creationMethod === 'custom' && (
                       <span className="bot-provenance mono" title="Created with the natural-language custom creator">
                         <Wand2 /> Custom

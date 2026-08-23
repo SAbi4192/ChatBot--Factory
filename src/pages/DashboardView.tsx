@@ -8,6 +8,7 @@ import {
 import type { Bot, Conversation } from '../types';
 import { db, type ProviderStatus, type OrgSummary } from '../services/db';
 import { useAuth } from '../auth/AuthContext';
+import { displayBotName } from '../utils/botName';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -220,8 +221,8 @@ export default function DashboardView() {
                       size="md"
                     />
                     <span className="meta">
-                      <span className="name">{b.name}</span>
-                      <span className="sub">{b.domain} · {b.subdomain}</span>
+                      <span className="name">{displayBotName(b)}</span>
+                      <span className="sub">{b.subdomain}</span>
                     </span>
                     <span className="chats"><MessageSquare /> {b.conversationCount ?? 0}</span>
                   </button>
