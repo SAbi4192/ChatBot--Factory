@@ -438,4 +438,46 @@ export const db = {
   async recallMemory(botId: string, q: string): Promise<Array<{ conversationId: string; role: string; content: string; score: number }>> {
     return json(`/api/bots/${botId}/memory?q=${encodeURIComponent(q)}`);
   },
+
+  // ---- Analytics (Checkpoint 6) ----
+  async getAnalyticsOverview(): Promise<AnalyticsOverview> {
+    return json('/api/analytics/overview');
+  },
+
+  async getBotAnalytics(botId: string): Promise<BotAnalytics | null> {
+    return json(`/api/analytics/bots/${botId}`);
+  },
+
+  async getRealtime(): Promise<{ activeConvs: number; msgsMin: number; errsMin: number; at: number }> {
+    return json('/api/analytics/realtime');
+  },
 };
+
+export interface AnalyticsOverview {
+  overview: { bots: number; conversations: number; messages: number; messagesToday: number; avgResponseMs: number | null; csat: number | null };
+  series: {
+    conversations: Array<{ day: string; count: number }>;
+    csat: Array<{ day: string; csat: number | null }>;
+    tokens: Array<{ day: string; local: number; cloud: number; web: number; guard: number }>;
+  };
+  charts: {
+    providerDist: Array<{ name: string; value: number }>;
+    topBots: Array<{ name: string; value: number }>;
+    domainDist: Array<{ name: string; value: number }>;
+    respHist: Array<{ label: string; value: number }>;
+    heatmap: Array<{ hour: number; Mon: number; Tue: number; Wed: number; Thu: number; Fri: number; Sat: number; Sun: number }>;
+    convLenHist: Array<{ label: string; value: number }>;
+  };
+  unresolved: Array<{ content: string; createdAt: number }>;
+}
+
+export interface BotAnalytics {
+  bot: { id: string; name: string; domain: string };
+  convCount: number;
+  msgCount: number;
+  csat: number | null;
+  mostAsked: Array<{ question: string; count: number }>;
+  providerDist: Array<{ name: string; value: number }>;
+  guardRate: number;
+  dropOff: number;
+}

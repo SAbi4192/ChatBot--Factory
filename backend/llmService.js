@@ -239,6 +239,7 @@ export async function routeAndPersist(bot, conversationId, userMessage, history)
 
   const log = [];
   let result;
+  const startedAt = Date.now();
   try {
     result = useWeb
       ? await answerWeb(bot, history, userMessage, log)
@@ -247,12 +248,13 @@ export async function routeAndPersist(bot, conversationId, userMessage, history)
     if (log.length) console.log('  ' + log.join('\n  '));
     throw e;
   }
+  const responseMs = Date.now() - startedAt;
   if (log.length) console.log('  ' + log.join('\n  '));
-  console.log(`[Router] Answered via: ${result.provider}`);
+  console.log(`[Router] Answered via: ${result.provider} (${responseMs}ms)`);
 
   const aid = uid();
-  await db.addMessage(aid, conversationId, 'assistant', result.response, Date.now(), result.provider, result.sources);
-  return { response: result.response, messageId: aid, provider: result.provider, sources: result.sources };
+  await db.addMessage(aid, conversationId, 'assistant', result.response, Date.now(), result.provider, result.sources, responseMs);
+  return { response: result.response, messageId: aid, provider: result.provider, sources: result.sources, responseMs };
 }
 
 export async function generateChatResponse(botId, conversationId, userMessage) {

@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Factory, LayoutDashboard, Bot, BarChart3, LayoutTemplate,
   PanelLeftClose, PanelLeftOpen, Factory as LogoIcon,
-  ChevronsUpDown, User as UserIcon, LogOut, Building2, Check,
+  ChevronsUpDown, User as UserIcon, LogOut, Building2, Check, Search as SearchIcon,
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 
@@ -15,7 +15,8 @@ const NAV_ITEMS = [
 ];
 
 const NAV_UPCOMING = [
-  { to: '/analytics', label: 'Analytics', icon: BarChart3, soon: true },
+  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/search', label: 'Search', icon: SearchIcon },
   { to: '/templates', label: 'Templates', icon: LayoutTemplate, soon: true },
 ];
 

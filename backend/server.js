@@ -22,6 +22,7 @@ import intelligenceRoutes from './routes/intelligence.routes.js';
 import searchRoutes from './routes/search.routes.js';
 import shareRoutes from './routes/share.routes.js';
 import ragRoutes from './routes/rag.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/conversations', requireAuth, conversationRoutes);
 app.use('/api/conversations', requireAuth, intelligenceRoutes);
 app.use('/api/search', requireAuth, searchRoutes);
 app.use('/api/bots', requireAuth, ragRoutes);
+app.use('/api/analytics', requireAuth, analyticsRoutes);
 app.use('/api/chat', requireAuth, chatRoutes);
 
 // --- Static frontend (production) -------------------------------------------

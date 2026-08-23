@@ -169,7 +169,7 @@ const renameConversation = async (id, title) => {
 
 // --- Repository: messages -----------------------------------------------------
 
-const addMessage = async (id, convId, role, content, createdAt, provider = 'local', sources = null) => {
+const addMessage = async (id, convId, role, content, createdAt, provider = 'local', sources = null, responseMs = null) => {
   await prisma.message.create({
     data: {
       id,
@@ -178,6 +178,7 @@ const addMessage = async (id, convId, role, content, createdAt, provider = 'loca
       content,
       provider,
       sources: sources ?? null,
+      responseMs,
       createdAt: new Date(createdAt ?? Date.now()),
     },
   });
