@@ -439,6 +439,9 @@ export default function ChatView() {
 
           {/* conversation actions */}
           <div className="cv-actions">
+            <button className="cv-act" onClick={() => navigate(`/bot/${botId}/edit`)} title="Edit this bot">
+              <Pencil /> <span className="hide-mobile">Edit</span>
+            </button>
             <button className="cv-act" onClick={() => navigate(`/kb/${botId}`)} title="Knowledge base (RAG)">
               <FileText /> <span className="hide-mobile">Knowledge</span>
             </button>

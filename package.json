@@ -20,6 +20,7 @@
   "dependencies": {
     "@google/genai": "^2.18.0",
     "@prisma/client": "^6.19.3",
+    "@xyflow/react": "^12.11.3",
     "bcryptjs": "^3.0.3",
     "cmdk": "^1.1.1",
     "cors": "^2.8.6",

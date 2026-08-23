@@ -17,8 +17,8 @@ const NAV_ITEMS = [
 const NAV_UPCOMING = [
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/moderation', label: 'Moderation', icon: ShieldAlert },
+  { to: '/templates', label: 'Templates', icon: LayoutTemplate },
   { to: '/search', label: 'Search', icon: SearchIcon },
-  { to: '/templates', label: 'Templates', icon: LayoutTemplate, soon: true },
 ];
 
 interface SidebarProps {

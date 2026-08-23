@@ -42,6 +42,14 @@ model Bot {
   creationMethod  String   @default("factory") @map("creation_method")
   orgId           String?  @map("org_id")
 
+  // Builder features (Checkpoint 8)
+  personalityTraits Json?   @map("personality_traits")
+  guardStrictness   String  @default("moderate") @map("guard_strictness")
+  memoryEnabled     Boolean @default(true) @map("memory_enabled")
+  provider          String? // per-bot model selection (Checkpoint 9)
+  flow              Json?
+  slots             Json?
+
   org              Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
   conversations    Conversation[]
   knowledgeBases   KnowledgeBase[]
@@ -57,8 +65,9 @@ model Conversation {
   id        String   @id
   botId     String   @map("bot_id")
   title     String?
-  createdAt DateTime @default(now()) @map("created_at")
+  createdAt DateTime @map("created_at")
   updatedAt DateTime @map("updated_at")
+  slotState Json?    @map("slot_state")
 
   bot      Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
   messages Message[]

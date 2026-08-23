@@ -35,6 +35,12 @@ function mapBotToFrontend(b) {
     updatedAt: ms(b.updatedAt),
     conversationCount: b._count?.conversations ?? 0,
     creationMethod: b.creationMethod ?? 'factory',
+    personalityTraits: b.personalityTraits ?? undefined,
+    guardStrictness: b.guardStrictness ?? 'moderate',
+    memoryEnabled: b.memoryEnabled !== false,
+    provider: b.provider ?? 'auto',
+    flow: b.flow ?? null,
+    slots: b.slots ?? null,
   };
 }
 

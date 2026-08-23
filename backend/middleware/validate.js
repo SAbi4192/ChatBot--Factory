@@ -118,6 +118,37 @@ export const schemas = {
   reaction: z.object({
     value: z.number().int().min(-1).max(1),
   }),
+
+  // ---- Bot builder (Checkpoint 8) ----
+  updateBot: z.object({
+    name: z.string().trim().min(1).max(120).optional(),
+    description: z.string().trim().max(500).optional(),
+    personality: z.string().trim().max(120).optional(),
+    personalityTraits: z.record(z.number().min(0).max(100)).optional(),
+    systemPrompt: z.string().trim().max(8000).optional(),
+    welcomeMessage: z.string().trim().max(2000).optional(),
+    starterQuestions: z.array(z.string().trim().max(200)).max(10).optional(),
+    domainProfile: z.record(z.any()).optional(),
+    designDna: z.record(z.any()).optional(),
+    avatar: z.string().trim().max(20).optional(),
+    guardStrictness: z.enum(['relaxed', 'moderate', 'strict']).optional(),
+    memoryEnabled: z.boolean().optional(),
+    provider: z.enum(['auto', 'local', 'groq', 'gemini']).optional(),
+    slots: z.array(z.record(z.any())).max(12).optional(),
+    flow: z.record(z.any()).nullable().optional(),
+  }),
+
+  saveFlow: z.object({
+    flow: z.record(z.any()),
+  }),
+
+  installTemplate: z.object({
+    templateId: z.string().trim().min(1).max(60),
+  }),
+
+  saveTemplate: z.object({
+    botId: shortId,
+  }),
 };
 
 /** Express middleware factory: validate req.body against a Zod schema. */

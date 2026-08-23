@@ -3,6 +3,7 @@ import { GoogleGenAI } from '@google/genai';
 import Groq from 'groq-sdk';
 import { checkDomainRelevance, generateRedirectMessage, generateIntroMessage } from './domainGuard.js';
 import { analyzeMessage, redactPII } from './services/nlu.service.js';
+import { runSlotEngine, runFlowEngine } from './services/engines.service.js';
 
 /**
  * ============================================================
@@ -245,6 +246,24 @@ export async function routeAndPersist(bot, conversationId, userMessage, history)
     const aid = uid();
     await db.addMessage(aid, conversationId, 'assistant', introMsg, Date.now(), 'profile', null);
     return { response: introMsg, messageId: aid, provider: 'profile', sources: null };
+  }
+
+  // ---- 1c. DETERMINISTIC ENGINES (slot forms / visual flows) ----
+  const persistEngine = async (role, content, provider) => {
+    const aid = uid();
+    await db.addMessage(aid, conversationId, role, content, Date.now(), provider, null);
+  };
+  try {
+    const slotResult = await runSlotEngine(bot, conversationId, userMessage, persistEngine);
+    if (slotResult) {
+      return { response: slotResult.response, messageId: uid(), provider: 'profile', sources: null, engine: 'slots' };
+    }
+    const flowResult = await runFlowEngine(bot, conversationId, userMessage, history, persistEngine);
+    if (flowResult) {
+      return { response: flowResult.response, messageId: uid(), provider: 'profile', sources: null, engine: 'flow', handoff: flowResult.handoff };
+    }
+  } catch (e) {
+    console.warn(`[engines] skipped (${e.message})`);
   }
 
   // ---- 2. CURRENT-INFO ROUTER ----

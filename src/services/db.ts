@@ -468,6 +468,43 @@ export const db = {
   async blockFlagged(msgId: string): Promise<void> {
     await json(`/api/moderation/${msgId}/block`, { method: 'POST' });
   },
+
+  // ---- Bot builder (Checkpoint 8) ----
+  async updateBot(botId: string, patch: Record<string, unknown>): Promise<Bot> {
+    return json(`/api/bots/${botId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch)
+    });
+  },
+
+  async getVersions(botId: string): Promise<Array<{ id: string; version: number; configSnapshot: Record<string, unknown>; createdAt: number }>> {
+    return json(`/api/bots/${botId}/versions`);
+  },
+
+  async rollbackTo(botId: string, versionId: string): Promise<Bot> {
+    return json(`/api/bots/${botId}/versions/${versionId}/rollback`, { method: 'POST' });
+  },
+
+  async saveFlow(botId: string, flow: Record<string, unknown>): Promise<{ success: boolean }> {
+    return json(`/api/bots/${botId}/flow`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ flow })
+    });
+  },
+
+  async getTemplates(): Promise<{ templates: Array<{ id: string; category: string; name: string; emoji: string; description: string; theme: string; domain: string; subdomain: string; prompt: string }> }> {
+    return json('/api/templates');
+  },
+
+  async installTemplate(templateId: string): Promise<Bot> {
+    return json('/api/templates/install', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateId })
+    });
+  },
 };
 
 export interface AnalyticsOverview {
