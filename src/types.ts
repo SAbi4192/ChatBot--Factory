@@ -53,6 +53,7 @@ export interface Bot {
   createdAt: number;
   updatedAt?: number;
   conversationCount?: number;
+  creationMethod?: 'factory' | 'custom';
 }
 
 export interface Conversation {

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Shuffle, Cpu, Globe, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Cpu, Globe, ShieldCheck, Wand2 } from 'lucide-react';
 import { db, type ProviderStatus } from '../services/db';
+import CustomBotCreator from '../components/CustomBotCreator';
 import './FactoryView.css';
 
 const PRESETS = [10, 100, 500, 1000];
@@ -22,6 +23,7 @@ export default function FactoryView() {
   const [stageIdx, setStageIdx] = useState(0);
   const [health, setHealth] = useState<ProviderStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creatorOpen, setCreatorOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -79,9 +81,6 @@ export default function FactoryView() {
     runProduction(n, () => navigate('/library'));
   };
 
-  const handleSurprise = () =>
-    runProduction(1, (sampleId) => navigate(sampleId ? `/chat/${sampleId}` : '/library'));
-
   // ---- Generation (production run) screen ----
   if (isGenerating) {
     const target = Math.max(produced, 1);
@@ -133,6 +132,17 @@ export default function FactoryView() {
             <span className="fv-chip mono"><ShieldCheck /> Domain-guarded</span>
             <span className="fv-chip mono"><Globe /> Web AI when current</span>
           </div>
+
+          <div className="fv-custom-cta">
+            <button className="fv-custom-btn" onClick={() => setCreatorOpen(true)}>
+              <span className="fv-custom-icon"><Wand2 /></span>
+              <span>
+                <strong>Create a custom bot</strong>
+                <small className="mono">Describe it in plain English — AI designs everything</small>
+              </span>
+              <ArrowRight className="fv-custom-arrow" />
+            </button>
+          </div>
           {health && (
             <div className="fv-providers mono" style={{ marginTop: '1.2rem' }} title="AI providers detected by the backend">
               <span><i className={`dot ${health.local ? 'on' : 'off'}`} /> LOCAL</span>
@@ -179,16 +189,12 @@ export default function FactoryView() {
               Produce {clamp(count).toLocaleString()} <ArrowRight />
             </button>
 
-            <div className="fv-or"><span>or</span></div>
-
-            <button className="btn btn-ghost fv-forge" onClick={handleSurprise}>
-              <Shuffle /> Forge one at random
-            </button>
-
             {error && <div className="fv-error mono">{error}</div>}
           </div>
         </section>
       </main>
+
+      <CustomBotCreator open={creatorOpen} onClose={() => setCreatorOpen(false)} />
     </div>
   );
 }

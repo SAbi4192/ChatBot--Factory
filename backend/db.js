@@ -34,6 +34,7 @@ function mapBotToFrontend(b) {
     createdAt: ms(b.createdAt),
     updatedAt: ms(b.updatedAt),
     conversationCount: b._count?.conversations ?? 0,
+    creationMethod: b.creationMethod ?? 'factory',
   };
 }
 

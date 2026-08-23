@@ -93,6 +93,21 @@ export const schemas = {
   setMemberRole: z.object({
     role: z.enum(['admin', 'editor', 'viewer']),
   }),
+
+  // ---- Custom bot creator ----
+  customBotDesign: z.object({
+    description: z.string().trim().min(3).max(500),
+  }),
+
+  customBotRegenerate: z.object({
+    description: z.string().trim().min(3).max(500),
+    section: z.enum(['name', 'theme', 'avatar']),
+    current: z.record(z.any()).optional(),
+  }),
+
+  customBotCreate: z.object({
+    description: z.string().trim().min(3).max(500),
+  }),
 };
 
 /** Express middleware factory: validate req.body against a Zod schema. */

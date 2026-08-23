@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Bot } from '../types';
 import { db } from '../services/db';
-import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Factory, ArrowRight, Bot as BotIcon } from 'lucide-react';
+import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Factory, ArrowRight, Bot as BotIcon, Wand2 } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -195,6 +195,11 @@ export default function LibraryView() {
 
                     <h3 className="bot-name">{bot.name}</h3>
                     <div className="bot-domain mono">{bot.domain} · {bot.subdomain}</div>
+                    {bot.creationMethod === 'custom' && (
+                      <span className="bot-provenance mono" title="Created with the natural-language custom creator">
+                        <Wand2 /> Custom
+                      </span>
+                    )}
                     <p className="bot-desc">{bot.description}</p>
 
                     <div className="bot-card-foot">

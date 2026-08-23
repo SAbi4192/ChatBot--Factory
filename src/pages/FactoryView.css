@@ -149,6 +149,41 @@
   border-radius: var(--radius-sm);
 }
 
+/* ---- Custom bot CTA (Checkpoint 3) ---- */
+.fv-custom-cta { margin-top: 1.6rem; }
+.fv-custom-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  width: 100%;
+  max-width: 420px;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--signal-line);
+  border-radius: var(--radius);
+  background: linear-gradient(135deg, var(--signal-soft), rgba(245, 177, 61, 0.03));
+  text-align: left;
+  transition: border-color 0.18s, box-shadow 0.18s, transform 0.15s var(--ease);
+}
+.fv-custom-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle), var(--shadow-md);
+  transform: translateY(-2px);
+}
+.fv-custom-icon {
+  display: grid;
+  place-items: center;
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #1a1205;
+  box-shadow: 0 6px 18px -6px rgba(245, 177, 61, 0.8);
+  flex: none;
+}
+.fv-custom-icon svg { width: 20px; height: 20px; }
+.fv-custom-btn strong { display: block; font-size: 0.95rem; color: var(--fg); }
+.fv-custom-btn small { display: block; font-size: 0.72rem; color: var(--fg-dim); margin-top: 0.1rem; letter-spacing: 0.02em; }
+.fv-custom-arrow { margin-left: auto; width: 18px; height: 18px; color: var(--accent); flex: none; }
+
 /* ---- Top-right (providers + library) ---- */
 .fv-topright { display: flex; align-items: center; gap: 1.1rem; }
 .fv-providers { display: flex; gap: 0.9rem; font-size: 0.68rem; letter-spacing: 0.08em; color: var(--fg-faint); }

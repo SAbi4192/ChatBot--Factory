@@ -273,4 +273,33 @@ export const db = {
       body: JSON.stringify({ currentPassword, newPassword })
     });
   },
+
+  // ---- Custom bot creator (Checkpoint 3) ----
+  async designCustomBot(description: string): Promise<{ design: Record<string, unknown>; designDna: Record<string, unknown> }> {
+    return json('/api/bots/custom/design', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description })
+    });
+  },
+
+  async regenerateCustomSection(
+    description: string,
+    section: 'name' | 'theme' | 'avatar',
+    current: Record<string, unknown>
+  ): Promise<{ design: Record<string, unknown>; designDna: Record<string, unknown> }> {
+    return json('/api/bots/custom/design/regenerate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description, section, current })
+    });
+  },
+
+  async createCustomBot(description: string): Promise<Bot> {
+    return json('/api/bots/custom', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description })
+    });
+  },
 };

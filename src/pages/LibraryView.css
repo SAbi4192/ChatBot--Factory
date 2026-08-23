@@ -191,6 +191,21 @@
   margin-bottom: 0.7rem;
   text-transform: uppercase;
 }
+.bot-provenance {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.6rem;
+  padding: 0.18rem 0.5rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: var(--accent-subtle);
+  border: 1px solid var(--signal-line);
+  border-radius: 999px;
+}
+.bot-provenance svg { width: 11px; height: 11px; }
 .bot-desc {
   font-size: 0.86rem;
   line-height: 1.55;

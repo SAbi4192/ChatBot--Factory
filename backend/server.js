@@ -16,6 +16,7 @@ import healthRoutes from './routes/health.routes.js';
 import authRoutes from './routes/auth.routes.js';
 import orgRoutes from './routes/orgs.routes.js';
 import botRoutes from './routes/bots.routes.js';
+import customBotRoutes from './routes/customBot.routes.js';
 import conversationRoutes from './routes/conversations.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 
@@ -50,6 +51,7 @@ app.use('/api/auth', authRoutes);
 // --- Protected API routes (JWT + org scoping) -------------------------------------
 app.use('/api/orgs', requireAuth, orgRoutes);
 app.use('/api/bots', requireAuth, botRoutes);
+app.use('/api/bots/custom', requireAuth, customBotRoutes);
 app.use('/api/conversations', requireAuth, conversationRoutes);
 app.use('/api/chat', requireAuth, chatRoutes);
 
