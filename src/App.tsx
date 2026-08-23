@@ -12,6 +12,7 @@ import LoginView from './pages/auth/LoginView';
 import RegisterView from './pages/auth/RegisterView';
 import SettingsView from './pages/SettingsView';
 import OrgSettingsView from './pages/OrgSettingsView';
+import KBView from './pages/KBView';
 
 /** Gate for routes that require a signed-in user. */
 function Protected({ children }: { children: React.ReactNode }) {
@@ -46,6 +47,13 @@ function App() {
         <Route path="/chat/:botId" element={
           <Protected>
             <ChatView />
+          </Protected>
+        } />
+        <Route path="/kb/:botId" element={
+          <Protected>
+            <AppShell>
+              <KBView />
+            </AppShell>
           </Protected>
         } />
 

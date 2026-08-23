@@ -390,4 +390,52 @@ export const db = {
   } | null> {
     return json(`/api/share/${convId}`);
   },
+
+  // ---- RAG knowledge base (Checkpoint 5) ----
+  async uploadDocument(botId: string, file: File, onProgress?: (pct: number) => void): Promise<{ id: string; name: string; status: string; chunkCount: number }> {
+    return new Promise((resolve, reject) => {
+      const form = new FormData();
+      form.append('file', file);
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `/api/bots/${botId}/kb/documents`);
+      const token = tokens.getAccessToken();
+      const orgId = tokens.getOrgId();
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      if (orgId) xhr.setRequestHeader('x-org-id', orgId);
+      xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress?.(Math.round((e.loaded / e.total) * 100)); };
+      xhr.onload = () => {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          if (xhr.status >= 400) reject(new Error(data.error || 'Upload failed'));
+          else resolve(data);
+        } catch { reject(new Error('Upload failed')); }
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(form);
+    });
+  },
+
+  async crawlUrl(botId: string, url: string): Promise<{ id: string; name: string; status: string; chunkCount: number }> {
+    return json(`/api/bots/${botId}/kb/crawl`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+  },
+
+  async listDocuments(botId: string): Promise<Array<{ id: string; name: string; status: string; chunkCount: number; createdAt: number }>> {
+    return json(`/api/bots/${botId}/kb/documents`);
+  },
+
+  async deleteDocument(botId: string, docId: string): Promise<void> {
+    await json(`/api/bots/${botId}/kb/documents/${docId}`, { method: 'DELETE' });
+  },
+
+  async kbStats(botId: string): Promise<{ documents: number; chunks: number; chars: number }> {
+    return json(`/api/bots/${botId}/kb/stats`);
+  },
+
+  async recallMemory(botId: string, q: string): Promise<Array<{ conversationId: string; role: string; content: string; score: number }>> {
+    return json(`/api/bots/${botId}/memory?q=${encodeURIComponent(q)}`);
+  },
 };
