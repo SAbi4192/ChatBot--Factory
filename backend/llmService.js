@@ -2,6 +2,7 @@ import db from './db.js';
 import { GoogleGenAI } from '@google/genai';
 import Groq from 'groq-sdk';
 import { checkDomainRelevance, generateRedirectMessage, generateIntroMessage } from './domainGuard.js';
+import { analyzeMessage, redactPII } from './services/nlu.service.js';
 
 /**
  * ============================================================
@@ -184,14 +185,17 @@ async function answerWeb(bot, history, userMessage, log) {
   throw new Error('All web providers unavailable');
 }
 
-// --- Normal chain: local -> Groq cloud ---------------------------------------
+// --- Normal chain: local -> Groq cloud -> graceful offline --------------------
 async function answerNormal(bot, history, userMessage, log) {
   try { return await fetchFromLocal(bot, history, userMessage); }
   catch (e) {
     log.push(`Local unavailable (${e.message}); falling back to Groq cloud`);
     if (hasGroq()) { try { return await fetchFromGroqChat(bot, history, userMessage); } catch (e2) { log.push(`Groq cloud failed: ${e2.message}`); } }
     if (hasGemini()) { try { return await fetchFromGemini(bot, history, userMessage); } catch (e3) { log.push(`Gemini failed: ${e3.message}`); } }
-    throw new Error('No AI provider available (local server down and no working cloud key)');
+    // Graceful degradation — the demo never dead-ends, even with every provider down.
+    const offlineMsg = "I'm sorry — none of the AI providers are reachable right now. Check that the local LLM server is running, or that your Groq/Gemini API keys are valid.";
+    log.push('All providers offline — returning graceful message');
+    return { response: offlineMsg, sources: null, provider: 'local' };
   }
 }
 
@@ -206,6 +210,22 @@ export async function routeAndPersist(bot, conversationId, userMessage, history)
   const relevance = await checkDomainRelevance(bot, userMessage, history);
   console.log(`\n[DomainGuard] Bot: ${bot.domain} · ${bot.subdomain} | Query: "${userMessage}"`);
   console.log(`  Layer: ${relevance.layer ?? '?'} | Result: ${relevance.result} | Confidence: ${relevance.confidence} | ${relevance.reason}`);
+
+  // ---- 1a. NLU + GUARDRAILS ----
+  const nlu = analyzeMessage(userMessage);
+  const redacted = redactPII(userMessage);
+  if (nlu.toxicity.toxic) {
+    const blockMsg = `I'm unable to assist with that language. Please keep our conversation respectful.`;
+    const aid = uid();
+    await db.addMessage(aid, conversationId, 'assistant', blockMsg, Date.now(), 'domain-guard', null, null, { ...nlu, blocked: 'toxicity' });
+    return { response: blockMsg, messageId: aid, provider: 'domain-guard', sources: null, nlu };
+  }
+  if (nlu.injection.injected) {
+    const blockMsg = `I understand you're being creative, but I need to stay on topic. Let's try a different approach.`;
+    const aid = uid();
+    await db.addMessage(aid, conversationId, 'assistant', blockMsg, Date.now(), 'domain-guard', null, null, { ...nlu, blocked: 'injection' });
+    return { response: blockMsg, messageId: aid, provider: 'domain-guard', sources: null, nlu };
+  }
 
   if (!relevance.relevant) {
     console.log(`[Router] Action: DOMAIN_REDIRECT`);
@@ -265,7 +285,8 @@ export async function generateChatResponse(botId, conversationId, userMessage) {
   const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
 
   // Persist the user message up front so it is never lost, even if the AI call fails.
-  await db.addMessage(uid(), conversationId, 'user', userMessage, Date.now());
+  const nlu = analyzeMessage(userMessage);
+  await db.addMessage(uid(), conversationId, 'user', userMessage, Date.now(), 'user', null, null, nlu);
 
   return routeAndPersist(bot, conversationId, userMessage, history);
 }

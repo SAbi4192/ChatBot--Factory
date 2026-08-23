@@ -14,6 +14,7 @@ import SettingsView from './pages/SettingsView';
 import OrgSettingsView from './pages/OrgSettingsView';
 import KBView from './pages/KBView';
 import AnalyticsView from './pages/AnalyticsView';
+import ModerationView from './pages/ModerationView';
 
 /** Gate for routes that require a signed-in user. */
 function Protected({ children }: { children: React.ReactNode }) {
@@ -68,6 +69,7 @@ function App() {
                 <Route path="/library" element={<LibraryView />} />
                 <Route path="/search" element={<SearchView />} />
                 <Route path="/analytics" element={<AnalyticsView />} />
+                <Route path="/moderation" element={<ModerationView />} />
                 <Route path="/settings" element={<SettingsView />} />
                 <Route path="/settings/org" element={<OrgSettingsView />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

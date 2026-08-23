@@ -59,6 +59,7 @@ function mapMessageToFrontend(m) {
     createdAt: ms(m.createdAt),
     pinned: m.pinned === true,
     rating: m.feedback ? m.feedback.rating : undefined,
+    nlu: m.nlu ?? undefined,
   };
 }
 
@@ -169,7 +170,7 @@ const renameConversation = async (id, title) => {
 
 // --- Repository: messages -----------------------------------------------------
 
-const addMessage = async (id, convId, role, content, createdAt, provider = 'local', sources = null, responseMs = null) => {
+const addMessage = async (id, convId, role, content, createdAt, provider = 'local', sources = null, responseMs = null, nlu = null) => {
   await prisma.message.create({
     data: {
       id,
@@ -179,6 +180,7 @@ const addMessage = async (id, convId, role, content, createdAt, provider = 'loca
       provider,
       sources: sources ?? null,
       responseMs,
+      nlu: nlu ?? undefined,
       createdAt: new Date(createdAt ?? Date.now()),
     },
   });

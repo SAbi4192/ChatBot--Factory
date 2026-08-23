@@ -74,4 +74,15 @@ export interface Message {
   createdAt?: number;
   pinned?: boolean;
   rating?: number; // 1 | -1 | 0 (thumbs)
+  nlu?: {
+    intent?: string;
+    entities?: Array<{ type: string; value: string }>;
+    sentiment?: string;
+    language?: string;
+    pii?: Array<{ type: string; value: string }>;
+    toxicity?: { toxic: boolean; matched: string[] };
+    injection?: { injected: boolean; matched: string[] };
+    blocked?: string;
+    approved?: boolean;
+  };
 }

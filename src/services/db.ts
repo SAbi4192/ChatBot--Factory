@@ -451,6 +451,23 @@ export const db = {
   async getRealtime(): Promise<{ activeConvs: number; msgsMin: number; errsMin: number; at: number }> {
     return json('/api/analytics/realtime');
   },
+
+  // ---- Moderation (Checkpoint 7) ----
+  async getFlagged(): Promise<Array<{
+    id: string; content: string;
+    nlu: { toxicity?: { toxic: boolean }; injection?: { injected: boolean }; pii?: unknown[]; blocked?: string; approved?: boolean };
+    createdAt: number; conversationId: string; conversationTitle: string | null; botName: string; botId: string;
+  }>> {
+    return json('/api/moderation/flagged');
+  },
+
+  async approveFlagged(msgId: string): Promise<void> {
+    await json(`/api/moderation/${msgId}/approve`, { method: 'POST' });
+  },
+
+  async blockFlagged(msgId: string): Promise<void> {
+    await json(`/api/moderation/${msgId}/block`, { method: 'POST' });
+  },
 };
 
 export interface AnalyticsOverview {
