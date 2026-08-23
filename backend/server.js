@@ -5,12 +5,56 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 import db from './db.js';
 import { generateSingleBot } from './generator.js';
 import { generateChatResponse, regenerateChatResponse, getProviderStatus } from './llmService.js';
+import { errorHandler, ApiError } from './middleware.js';
+import { validate, schemas } from './validation.js';
 
 const app = express();
-app.use(cors());
+
+// --- Security headers ---------------------------------------------------------
+// CSP is disabled because the React SPA uses inline styles; the other helmet
+// protections (X-Content-Type-Options, frame-ancestors, etc.) stay on.
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// --- CORS allowlist -----------------------------------------------------------
+// Same-origin requests (Vite dev proxy, production static serving) carry no
+// Origin header and are always allowed. Cross-origin requests must come from
+// an origin listed in CORS_ORIGINS (comma-separated).
+const allowedOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error(`Not allowed by CORS: ${origin}`));
+  },
+}));
+
+// --- Rate limiting -------------------------------------------------------------
+// Generous defaults for a demo app; the AI endpoints get a tighter limit since
+// each call costs real provider tokens.
+const apiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 300,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please slow down.' },
+});
+const aiLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 60,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'AI request limit reached — try again in a minute.' },
+});
+
+app.use('/api', apiLimiter);
 app.use(express.json({ limit: '2mb' }));
 
 // --- Health / status -------------------------------------------------------
@@ -62,10 +106,9 @@ app.delete('/api/bots/:botId', (req, res) => {
   }
 });
 
-app.post('/api/bots/generate', async (req, res) => {
+app.post('/api/bots/generate', aiLimiter, validate(schemas.generateBots), async (req, res) => {
   try {
-    const count = Number(req.body?.count);
-    if (!count || count < 1) return res.status(400).json({ error: 'Invalid count' });
+    const count = req.body.count;
     const cap = 50; // Cap to 50 for LLM generation
     const n = Math.min(count, cap);
 
@@ -103,11 +146,11 @@ app.get('/api/bots/:botId/conversations', (req, res) => {
 });
 
 // Preferred REST style: create a conversation under a bot.
-app.post('/api/bots/:botId/conversations', (req, res) => {
+app.post('/api/bots/:botId/conversations', validate(schemas.createConversationUnderBot), (req, res) => {
   try {
-    const id = req.body?.id || Math.random().toString(36).substring(2, 11);
-    const title = req.body?.title || 'New Conversation';
-    const createdAt = req.body?.createdAt || Date.now();
+    const id = req.body.id || Math.random().toString(36).substring(2, 11);
+    const title = req.body.title || 'New Conversation';
+    const createdAt = req.body.createdAt || Date.now();
     db.createConversation(id, req.params.botId, title, createdAt);
     res.json({ id, botId: req.params.botId, title, createdAt });
   } catch (error) {
@@ -116,10 +159,9 @@ app.post('/api/bots/:botId/conversations', (req, res) => {
 });
 
 // Backwards-compatible endpoint (frontend currently posts here).
-app.post('/api/conversations', (req, res) => {
+app.post('/api/conversations', validate(schemas.createConversation), (req, res) => {
   try {
     const { id, botId, title, createdAt } = req.body;
-    if (!id || !botId) return res.status(400).json({ error: 'Missing id or botId' });
     db.createConversation(id, botId, title || 'New Conversation', createdAt || Date.now());
     res.json({ success: true });
   } catch (error) {
@@ -127,11 +169,9 @@ app.post('/api/conversations', (req, res) => {
   }
 });
 
-app.patch('/api/conversations/:convId', (req, res) => {
+app.patch('/api/conversations/:convId', validate(schemas.renameConversation), (req, res) => {
   try {
-    const { title } = req.body;
-    if (!title) return res.status(400).json({ error: 'Missing title' });
-    db.renameConversation(req.params.convId, title);
+    db.renameConversation(req.params.convId, req.body.title);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -156,12 +196,9 @@ app.get('/api/conversations/:convId/messages', (req, res) => {
 });
 
 // --- Chat ------------------------------------------------------------------
-app.post('/api/chat', async (req, res) => {
+app.post('/api/chat', aiLimiter, validate(schemas.chat), async (req, res) => {
   try {
     const { botId, conversationId, message } = req.body;
-    if (!botId || !conversationId || !message) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
     const response = await generateChatResponse(botId, conversationId, message);
     res.json(response);
   } catch (error) {
@@ -170,12 +207,9 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-app.post('/api/chat/regenerate', async (req, res) => {
+app.post('/api/chat/regenerate', aiLimiter, validate(schemas.regenerate), async (req, res) => {
   try {
     const { botId, conversationId } = req.body;
-    if (!botId || !conversationId) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
     const response = await regenerateChatResponse(botId, conversationId);
     res.json(response);
   } catch (error) {
@@ -205,3 +239,8 @@ app.use((req, res) => {
   }
   res.sendFile(path.join(distDir, 'index.html'));
 });
+
+// --- Central error handler (must be LAST) --------------------------------------
+// Catches CORS rejections, malformed JSON, ApiErrors, and anything else, and
+// answers with a consistent JSON shape without leaking internals.
+app.use(errorHandler);
