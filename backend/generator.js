@@ -553,8 +553,3 @@ export async function generateSingleBot() {
     createdAt: Date.now(),
   };
 }
-
-export async function generateBots(count) {
-  const bots = await Promise.all(Array.from({ length: count }).map(() => generateSingleBot()));
-  return bots;
-}

@@ -30,31 +30,46 @@ export default function FactoryView() {
     db.getHealth().then(setHealth).catch(() => setHealth(null));
   }, []);
 
-  const animateProduction = (target: number) =>
-    new Promise<void>(resolve => {
-      const duration = target > 1 ? 1700 : 900;
-      const start = performance.now();
-      const tick = (now: number) => {
-        const t = Math.min(1, (now - start) / duration);
-        const eased = 1 - Math.pow(1 - t, 3);
-        setProduced(Math.max(1, Math.floor(eased * target)));
-        setStageIdx(Math.min(STAGES.length - 1, Math.floor(t * STAGES.length)));
-        if (t < 1) requestAnimationFrame(tick);
-        else { setProduced(target); resolve(); }
-      };
-      requestAnimationFrame(tick);
-    });
-
   const runProduction = async (n: number, onDone: (sampleId?: string) => void) => {
     setError(null);
     setIsGenerating(true);
     setProduced(0);
     setStageIdx(0);
+
+    // The backend caps each generate call at 50 bots, so db.addBots loops in
+    // batches for larger orders. The counter shown to the user eases toward
+    // the REAL batch progress, so the run feels alive whether it takes one
+    // API call or twenty — and it never reports bots that don't exist yet.
+    let actual = 0;      // real progress reported by the API batches
+    let displayed = 0;   // eased counter rendered in the UI
+    let rafId = 0;
+    let stopped = false;
+
+    const tick = () => {
+      if (stopped) return;
+      displayed = Math.min(actual, displayed + Math.max(1, Math.ceil((actual - displayed) * 0.12)));
+      setProduced(displayed);
+      setStageIdx(Math.min(STAGES.length - 1, Math.floor((displayed / Math.max(1, n)) * STAGES.length)));
+      rafId = requestAnimationFrame(tick);
+    };
+
     try {
-      const [res] = await Promise.all([db.addBots(n), animateProduction(n)]);
+      rafId = requestAnimationFrame(tick);
+      const res = await db.addBots(n, (soFar) => { actual = soFar; });
+      actual = n;
+      // Let the eased counter catch up to the final value before moving on.
+      while (displayed < n && !stopped) {
+        await new Promise(r => setTimeout(r, 40));
+      }
+      stopped = true;
+      cancelAnimationFrame(rafId);
+      setProduced(n);
+      setStageIdx(STAGES.length - 1);
       await new Promise(r => setTimeout(r, 300));
       onDone(res?.sample?.id);
     } catch {
+      stopped = true;
+      cancelAnimationFrame(rafId);
       setIsGenerating(false);
       setError('Could not reach the factory backend. Start it with the backend server, then try again.');
     }

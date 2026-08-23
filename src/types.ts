@@ -58,23 +58,17 @@ export interface Bot {
 export interface Conversation {
   id: string;
   botId?: string;
-  bot_id?: string;
   title: string;
   createdAt?: number;
-  created_at?: number;
   updatedAt?: number;
-  updated_at?: number;
 }
 
 export interface Message {
   id: string;
-  // Backend returns snake_case; keep both optional to avoid friction.
   conversationId?: string;
-  conversation_id?: string;
   role: 'user' | 'assistant' | 'system';
   content: string;
   provider?: string;
   sources?: string[] | null;
-  timestamp?: number;
-  created_at?: number;
+  createdAt?: number;
 }

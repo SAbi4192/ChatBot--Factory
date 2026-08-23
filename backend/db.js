@@ -116,6 +116,31 @@ function mapBotToFrontend(b) {
   };
 }
 
+// API boundary normalization: the database stores snake_case columns, but the
+// API contract with the frontend is always camelCase. These mappers are the
+// single place where that translation happens.
+function mapConversationToFrontend(c) {
+  return {
+    id: c.id,
+    botId: c.bot_id,
+    title: c.title,
+    createdAt: c.created_at,
+    updatedAt: c.updated_at
+  };
+}
+
+function mapMessageToFrontend(m) {
+  return {
+    id: m.id,
+    conversationId: m.conversation_id,
+    role: m.role,
+    content: m.content,
+    provider: m.provider,
+    sources: m.sources ? JSON.parse(m.sources) : null,
+    createdAt: m.created_at
+  };
+}
+
 export default {
   // Bots
   getBots: () => {
@@ -151,8 +176,15 @@ export default {
 
   // Conversations
   createConversation: (id, botId, title, createdAt) => insertConvStmt.run(id, botId, title, createdAt, createdAt),
-  getConversations: (botId) => getConvsStmt.all(botId),
-  deleteConversation: (id) => deleteConvStmt.run(id),
+  getConversations: (botId) => getConvsStmt.all(botId).map(mapConversationToFrontend),
+  // Cascade: a conversation's messages are removed in the same transaction so
+  // no orphaned rows can survive a delete (FK integrity is enforced by design).
+  deleteConversation: (id) => {
+    db.transaction(() => {
+      db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(id);
+      deleteConvStmt.run(id);
+    })();
+  },
   renameConversation: (id, title) => renameConvStmt.run(title, id),
   
   // Messages
@@ -165,10 +197,22 @@ export default {
   },
   getMessages: (convId) => {
     const msgs = getMsgsStmt.all(convId);
-    return msgs.map(m => ({
-      ...m,
-      sources: m.sources ? JSON.parse(m.sources) : null
-    }));
+    return msgs.map(mapMessageToFrontend);
   },
-  deleteMessage: (id) => deleteMsgStmt.run(id)
+  deleteMessage: (id) => deleteMsgStmt.run(id),
+
+  // Single-bot cascade delete: messages -> conversations -> bot, all in one
+  // transaction so a failed delete never leaves half-removed data behind.
+  deleteBot: (id) => {
+    const result = db.transaction(() => {
+      db.prepare(`
+        DELETE FROM messages WHERE conversation_id IN (
+          SELECT id FROM conversations WHERE bot_id = ?
+        )
+      `).run(id);
+      db.prepare('DELETE FROM conversations WHERE bot_id = ?').run(id);
+      return db.prepare('DELETE FROM bots WHERE id = ?').run(id);
+    })();
+    return result.changes > 0;
+  }
 };

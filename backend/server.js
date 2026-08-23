@@ -51,6 +51,17 @@ app.delete('/api/bots', (req, res) => {
   }
 });
 
+// Delete a single bot with cascade (its conversations and messages go too).
+app.delete('/api/bots/:botId', (req, res) => {
+  try {
+    const deleted = db.deleteBot(req.params.botId);
+    if (!deleted) return res.status(404).json({ error: 'Bot not found' });
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.post('/api/bots/generate', async (req, res) => {
   try {
     const count = Number(req.body?.count);

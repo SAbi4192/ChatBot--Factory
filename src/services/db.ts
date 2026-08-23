@@ -36,18 +36,44 @@ export const db = {
     }
   },
 
-  async addBots(count: number): Promise<{ count: number; sample: Bot }> {
-    const res = await fetch('/api/bots/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ count })
-    });
-    if (!res.ok) throw new Error('Failed to generate bots');
-    return res.json();
+  /**
+   * Generate bots in batches. The backend caps each request at 50 bots to
+   * protect the LLM pipeline, so larger orders are looped here in batches of
+   * 50 with an optional progress callback (used by the production-run UI).
+   * Returns the total count produced plus a sample bot from the first batch.
+   */
+  async addBots(
+    count: number,
+    onBatch?: (producedSoFar: number, total: number) => void
+  ): Promise<{ count: number; sample: Bot }> {
+    const BATCH_SIZE = 50;
+    let produced = 0;
+    let sample: Bot | null = null;
+
+    while (produced < count) {
+      const n = Math.min(BATCH_SIZE, count - produced);
+      const res = await fetch('/api/bots/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ count: n })
+      });
+      if (!res.ok) throw new Error('Failed to generate bots');
+      const data = await res.json();
+      if (!sample && data.sample) sample = data.sample;
+      produced += data.count ?? n;
+      onBatch?.(produced, count);
+    }
+
+    return { count: produced, sample: sample as Bot };
   },
 
   async deleteAllBots(): Promise<void> {
     await fetch('/api/bots', { method: 'DELETE' });
+  },
+
+  async deleteBot(botId: string): Promise<void> {
+    const res = await fetch(`/api/bots/${botId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Failed to delete bot');
   },
 
   async toggleFavorite(botId: string): Promise<boolean> {

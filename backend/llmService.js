@@ -24,7 +24,7 @@ import { checkDomainRelevance, generateRedirectMessage, generateIntroMessage } f
 const LOCAL_LLM_URL = process.env.LOCAL_LLM_URL || 'http://127.0.0.1:8000/api/chat';
 const GROQ_WEB_MODEL = process.env.GROQ_WEB_MODEL || 'groq/compound-mini';      // built-in web search
 const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'llama-3.3-70b-versatile'; // normal chat
-const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
 const GROQ_KEY = process.env.GROQ_API_KEY;
 const GEMINI_KEY = process.env.GEMINI_API_KEY;
