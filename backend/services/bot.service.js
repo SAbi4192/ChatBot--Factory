@@ -16,13 +16,13 @@ export const GENERATE_CAP = 50;
 export const uid = () => Math.random().toString(36).substring(2, 11);
 
 /** List all bots, newest first, each with its conversation count. */
-export function listBots() {
+export async function listBots() {
   return db.getBots();
 }
 
 /** Fetch one bot by id; throws 404 ApiError when missing. */
-export function getBotOrThrow(id) {
-  const bot = db.getBot(id);
+export async function getBotOrThrow(id) {
+  const bot = await db.getBot(id);
   if (!bot) throw new ApiError(404, 'Bot not found');
   return bot;
 }
@@ -36,25 +36,25 @@ export async function generateBots(requestedCount) {
   const bots = await Promise.all(
     Array.from({ length: n }).map(() => generateSingleBot())
   );
-  db.insertBotsBulk(bots);
+  await db.insertBotsBulk(bots);
   return { bots, count: n, capped: requestedCount > GENERATE_CAP };
 }
 
 /** Toggle a bot's favorite flag; returns the new state. */
-export function toggleFavorite(id) {
-  getBotOrThrow(id);
-  db.toggleFavorite(id);
-  const bot = db.getBot(id);
+export async function toggleFavorite(id) {
+  await getBotOrThrow(id);
+  await db.toggleFavorite(id);
+  const bot = await db.getBot(id);
   return bot?.favorite ?? false;
 }
 
 /** Delete one bot and cascade to its conversations + messages. */
-export function deleteBot(id) {
-  const deleted = db.deleteBot(id);
+export async function deleteBot(id) {
+  const deleted = await db.deleteBot(id);
   if (!deleted) throw new ApiError(404, 'Bot not found');
 }
 
 /** Delete every bot, conversation and message. */
-export function deleteAllBots() {
-  db.deleteAll();
+export async function deleteAllBots() {
+  await db.deleteAll();
 }

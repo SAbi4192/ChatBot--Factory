@@ -210,7 +210,7 @@ async function routeAndPersist(bot, conversationId, userMessage, history) {
     console.log(`[Router] Action: DOMAIN_REDIRECT`);
     const redirectMsg = generateRedirectMessage(bot);
     const aid = uid();
-    db.addMessage(aid, conversationId, 'assistant', redirectMsg, Date.now(), 'domain-guard', null);
+    await db.addMessage(aid, conversationId, 'assistant', redirectMsg, Date.now(), 'domain-guard', null);
     return { response: redirectMsg, messageId: aid, provider: 'domain-guard', sources: null };
   }
 
@@ -222,7 +222,7 @@ async function routeAndPersist(bot, conversationId, userMessage, history) {
     console.log(`[Router] Action: BOT_PROFILE_REPLY (${relevance.kind})`);
     const introMsg = generateIntroMessage(bot, relevance.kind);
     const aid = uid();
-    db.addMessage(aid, conversationId, 'assistant', introMsg, Date.now(), 'profile', null);
+    await db.addMessage(aid, conversationId, 'assistant', introMsg, Date.now(), 'profile', null);
     return { response: introMsg, messageId: aid, provider: 'profile', sources: null };
   }
 
@@ -250,32 +250,32 @@ async function routeAndPersist(bot, conversationId, userMessage, history) {
   console.log(`[Router] Answered via: ${result.provider}`);
 
   const aid = uid();
-  db.addMessage(aid, conversationId, 'assistant', result.response, Date.now(), result.provider, result.sources);
+  await db.addMessage(aid, conversationId, 'assistant', result.response, Date.now(), result.provider, result.sources);
   return { response: result.response, messageId: aid, provider: result.provider, sources: result.sources };
 }
 
 export async function generateChatResponse(botId, conversationId, userMessage) {
-  const bot = db.getBot(botId);
+  const bot = await db.getBot(botId);
   if (!bot) throw new Error('Bot not found');
 
-  const messages = db.getMessages(conversationId);
+  const messages = await db.getMessages(conversationId);
   const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
 
   // Persist the user message up front so it is never lost, even if the AI call fails.
-  db.addMessage(uid(), conversationId, 'user', userMessage, Date.now());
+  await db.addMessage(uid(), conversationId, 'user', userMessage, Date.now());
 
   return routeAndPersist(bot, conversationId, userMessage, history);
 }
 
 // Regenerate the most recent assistant reply for a conversation.
 export async function regenerateChatResponse(botId, conversationId) {
-  const bot = db.getBot(botId);
+  const bot = await db.getBot(botId);
   if (!bot) throw new Error('Bot not found');
 
-  let messages = db.getMessages(conversationId);
+  let messages = await db.getMessages(conversationId);
   // Drop trailing assistant message(s) so we can produce a fresh one.
   while (messages.length && messages[messages.length - 1].role === 'assistant') {
-    db.deleteMessage(messages[messages.length - 1].id);
+    await db.deleteMessage(messages[messages.length - 1].id);
     messages.pop();
   }
   if (!messages.length || messages[messages.length - 1].role !== 'user') {

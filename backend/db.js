@@ -1,99 +1,23 @@
-import Database from 'better-sqlite3';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+/**
+ * Data-access layer backed by Prisma ORM.
+ *
+ * This module is the single place that talks to the database. It exposes the
+ * same function surface it always has, so services / llmService are untouched
+ * by the underlying storage choice (SQLite now, PostgreSQL later — the schema
+ * is provider-portable and only DATABASE_URL changes).
+ *
+ * All functions are synchronous wrappers over Prisma's async API. Timestamps
+ * are stored as DateTime and converted to epoch-ms here, so the API contract
+ * with the frontend never changes.
+ */
+import { PrismaClient } from '@prisma/client';
+import './loadEnv.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const prisma = new PrismaClient();
 
-const dataDir = path.join(__dirname, '../data');
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
-}
+// --- Field mappers: Prisma row -> frontend shape (camelCase, epoch-ms) --------
 
-const dbPath = path.join(dataDir, 'chatbot_factory.db');
-export const db = new Database(dbPath);
-
-// Initialize DB schema
-db.pragma('journal_mode = WAL');
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS bots (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    domain TEXT NOT NULL,
-    subdomain TEXT NOT NULL,
-    description TEXT,
-    personality TEXT,
-    system_prompt TEXT,
-    theme TEXT,
-    design_dna TEXT,
-    avatar TEXT,
-    welcome_message TEXT,
-    starter_questions TEXT,
-    domain_profile TEXT,
-    favorite INTEGER DEFAULT 0,
-    created_at INTEGER,
-    updated_at INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY,
-    bot_id TEXT NOT NULL,
-    title TEXT,
-    created_at INTEGER,
-    updated_at INTEGER,
-    FOREIGN KEY(bot_id) REFERENCES bots(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL,
-    role TEXT NOT NULL,
-    content TEXT NOT NULL,
-    provider TEXT DEFAULT 'local',
-    sources TEXT,
-    created_at INTEGER,
-    FOREIGN KEY(conversation_id) REFERENCES conversations(id)
-  );
-`);
-
-// Safely add columns if migrating from V3
-try { db.exec("ALTER TABLE bots ADD COLUMN starter_questions TEXT;"); } catch(e) {}
-try { db.exec("ALTER TABLE bots ADD COLUMN domain_profile TEXT;"); } catch(e) {}
-try { db.exec("ALTER TABLE messages ADD COLUMN provider TEXT DEFAULT 'local';"); } catch(e) {}
-try { db.exec("ALTER TABLE messages ADD COLUMN sources TEXT;"); } catch(e) {}
-
-// Prepared statements for Bots
-const insertBotStmt = db.prepare(`
-  INSERT INTO bots (id, name, domain, subdomain, description, personality, system_prompt, theme, design_dna, avatar, welcome_message, starter_questions, domain_profile, favorite, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
-
-const getBotsStmt = db.prepare(`
-  SELECT b.*, (SELECT COUNT(*) FROM conversations c WHERE c.bot_id = b.id) as conversationCount 
-  FROM bots b ORDER BY b.created_at DESC
-`);
-const getBotStmt = db.prepare('SELECT * FROM bots WHERE id = ?');
-const toggleFavoriteStmt = db.prepare('UPDATE bots SET favorite = CASE WHEN favorite = 1 THEN 0 ELSE 1 END WHERE id = ?');
-
-// Prepared statements for Conversations
-const insertConvStmt = db.prepare(`
-  INSERT INTO conversations (id, bot_id, title, created_at, updated_at)
-  VALUES (?, ?, ?, ?, ?)
-`);
-const getConvsStmt = db.prepare('SELECT * FROM conversations WHERE bot_id = ? ORDER BY updated_at DESC');
-const updateConvTimeStmt = db.prepare('UPDATE conversations SET updated_at = ? WHERE id = ?');
-const deleteConvStmt = db.prepare('DELETE FROM conversations WHERE id = ?');
-const renameConvStmt = db.prepare('UPDATE conversations SET title = ? WHERE id = ?');
-
-// Prepared statements for Messages
-const insertMsgStmt = db.prepare(`
-  INSERT INTO messages (id, conversation_id, role, content, provider, sources, created_at)
-  VALUES (?, ?, ?, ?, ?, ?, ?)
-`);
-const getMsgsStmt = db.prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC');
-const deleteMsgStmt = db.prepare('DELETE FROM messages WHERE id = ?');
+const ms = (date) => (date instanceof Date ? date.getTime() : date ?? null);
 
 function mapBotToFrontend(b) {
   return {
@@ -103,116 +27,180 @@ function mapBotToFrontend(b) {
     subdomain: b.subdomain,
     description: b.description,
     personality: b.personality,
-    systemPrompt: b.system_prompt,
-    designDna: typeof b.design_dna === 'string' ? JSON.parse(b.design_dna) : b.design_dna,
+    systemPrompt: b.systemPrompt,
+    designDna: b.designDna,
     avatar: b.avatar,
-    welcomeMessage: b.welcome_message,
-    starterQuestions: b.starter_questions ? JSON.parse(b.starter_questions) : [],
-    domainProfile: b.domain_profile ? JSON.parse(b.domain_profile) : null,
-    favorite: b.favorite === 1,
-    createdAt: b.created_at,
-    updatedAt: b.updated_at,
-    conversationCount: b.conversationCount || 0
+    welcomeMessage: b.welcomeMessage,
+    starterQuestions: b.starterQuestions ?? [],
+    domainProfile: b.domainProfile,
+    favorite: b.favorite === true,
+    createdAt: ms(b.createdAt),
+    updatedAt: ms(b.updatedAt),
+    conversationCount: b._count?.conversations ?? 0,
   };
 }
 
-// API boundary normalization: the database stores snake_case columns, but the
-// API contract with the frontend is always camelCase. These mappers are the
-// single place where that translation happens.
 function mapConversationToFrontend(c) {
   return {
     id: c.id,
-    botId: c.bot_id,
+    botId: c.botId,
     title: c.title,
-    createdAt: c.created_at,
-    updatedAt: c.updated_at
+    createdAt: ms(c.createdAt),
+    updatedAt: ms(c.updatedAt),
   };
 }
 
 function mapMessageToFrontend(m) {
   return {
     id: m.id,
-    conversationId: m.conversation_id,
+    conversationId: m.conversationId,
     role: m.role,
     content: m.content,
     provider: m.provider,
-    sources: m.sources ? JSON.parse(m.sources) : null,
-    createdAt: m.created_at
+    sources: m.sources ?? null,
+    createdAt: ms(m.createdAt),
   };
 }
 
+// --- Repository: bots ---------------------------------------------------------
+
+const getBots = async () => {
+  const bots = await prisma.bot.findMany({
+    orderBy: { createdAt: 'desc' },
+    include: { _count: { select: { conversations: true } } },
+  });
+  return bots.map(mapBotToFrontend);
+};
+
+const getBot = async (id) => {
+  const bot = await prisma.bot.findUnique({ where: { id } });
+  return bot ? mapBotToFrontend(bot) : null;
+};
+
+const insertBotsBulk = async (bots) => {
+  await prisma.$transaction(
+    bots.map((b) =>
+      prisma.bot.create({
+        data: {
+          id: b.id,
+          name: b.name,
+          domain: b.domain,
+          subdomain: b.subdomain,
+          description: b.description,
+          personality: b.personality,
+          systemPrompt: b.systemPrompt,
+          theme: b.designDna?.theme ?? b.theme,
+          designDna: b.designDna ?? null,
+          avatar: b.avatar,
+          welcomeMessage: b.welcomeMessage,
+          starterQuestions: b.starterQuestions ?? [],
+          domainProfile: b.domainProfile ?? null,
+          createdAt: new Date(b.createdAt ?? Date.now()),
+          updatedAt: new Date(b.createdAt ?? Date.now()),
+        },
+      })
+    )
+  );
+};
+
+const toggleFavorite = async (id) => {
+  const bot = await prisma.bot.findUnique({ where: { id } });
+  if (!bot) return;
+  await prisma.bot.update({ where: { id }, data: { favorite: !bot.favorite } });
+};
+
+const deleteAll = async () => {
+  await prisma.$transaction([
+    prisma.message.deleteMany(),
+    prisma.conversation.deleteMany(),
+    prisma.bot.deleteMany(),
+  ]);
+};
+
+// --- Repository: conversations ------------------------------------------------
+
+const createConversation = async (id, botId, title, createdAt) => {
+  const ts = new Date(createdAt ?? Date.now());
+  await prisma.conversation.create({
+    data: { id, botId, title, createdAt: ts, updatedAt: ts },
+  });
+};
+
+const getConversations = async (botId) => {
+  const convs = await prisma.conversation.findMany({
+    where: { botId },
+    orderBy: { updatedAt: 'desc' },
+  });
+  return convs.map(mapConversationToFrontend);
+};
+
+// Cascade to messages is enforced by the schema (onDelete: Cascade).
+const deleteConversation = async (id) => {
+  await prisma.conversation.delete({ where: { id } });
+};
+
+const renameConversation = async (id, title) => {
+  await prisma.conversation.update({
+    where: { id },
+    data: { title, updatedAt: new Date() },
+  });
+};
+
+// --- Repository: messages -----------------------------------------------------
+
+const addMessage = async (id, convId, role, content, createdAt, provider = 'local', sources = null) => {
+  await prisma.message.create({
+    data: {
+      id,
+      conversationId: convId,
+      role,
+      content,
+      provider,
+      sources: sources ?? null,
+      createdAt: new Date(createdAt ?? Date.now()),
+    },
+  });
+  await prisma.conversation.update({
+    where: { id: convId },
+    data: { updatedAt: new Date(createdAt ?? Date.now()) },
+  });
+};
+
+const getMessages = async (convId) => {
+  const msgs = await prisma.message.findMany({
+    where: { conversationId: convId },
+    orderBy: { createdAt: 'asc' },
+  });
+  return msgs.map(mapMessageToFrontend);
+};
+
+const deleteMessage = async (id) => {
+  await prisma.message.delete({ where: { id } });
+};
+
+// Cascade to conversations + messages is enforced by the schema.
+const deleteBot = async (id) => {
+  const existing = await prisma.bot.findUnique({ where: { id } });
+  if (!existing) return false;
+  await prisma.bot.delete({ where: { id } });
+  return true;
+};
+
 export default {
-  // Bots
-  getBots: () => {
-    const bots = getBotsStmt.all();
-    return bots.map(mapBotToFrontend);
-  },
-  getBot: (id) => {
-    const b = getBotStmt.get(id);
-    if (!b) return null;
-    return mapBotToFrontend(b);
-  },
-  insertBotsBulk: (bots) => {
-    const insertMany = db.transaction((botsArr) => {
-      for (const b of botsArr) {
-        insertBotStmt.run(
-          b.id, b.name, b.domain, b.subdomain, b.description, b.personality, b.systemPrompt,
-          b.designDna.theme, JSON.stringify(b.designDna), b.avatar, b.welcomeMessage,
-          JSON.stringify(b.starterQuestions), JSON.stringify(b.domainProfile), 0,
-          b.createdAt, b.createdAt
-        );
-      }
-    });
-    insertMany(bots);
-  },
-  toggleFavorite: (id) => toggleFavoriteStmt.run(id),
-  deleteAll: () => {
-    db.transaction(() => {
-      db.exec('DELETE FROM messages');
-      db.exec('DELETE FROM conversations');
-      db.exec('DELETE FROM bots');
-    })();
-  },
+  getBots,
+  getBot,
+  insertBotsBulk,
+  toggleFavorite,
+  deleteAll,
 
-  // Conversations
-  createConversation: (id, botId, title, createdAt) => insertConvStmt.run(id, botId, title, createdAt, createdAt),
-  getConversations: (botId) => getConvsStmt.all(botId).map(mapConversationToFrontend),
-  // Cascade: a conversation's messages are removed in the same transaction so
-  // no orphaned rows can survive a delete (FK integrity is enforced by design).
-  deleteConversation: (id) => {
-    db.transaction(() => {
-      db.prepare('DELETE FROM messages WHERE conversation_id = ?').run(id);
-      deleteConvStmt.run(id);
-    })();
-  },
-  renameConversation: (id, title) => renameConvStmt.run(title, id),
-  
-  // Messages
-  addMessage: (id, convId, role, content, createdAt, provider = 'local', sources = null) => {
-    const transaction = db.transaction(() => {
-      insertMsgStmt.run(id, convId, role, content, provider, sources ? JSON.stringify(sources) : null, createdAt);
-      updateConvTimeStmt.run(createdAt, convId);
-    });
-    transaction();
-  },
-  getMessages: (convId) => {
-    const msgs = getMsgsStmt.all(convId);
-    return msgs.map(mapMessageToFrontend);
-  },
-  deleteMessage: (id) => deleteMsgStmt.run(id),
+  createConversation,
+  getConversations,
+  deleteConversation,
+  renameConversation,
 
-  // Single-bot cascade delete: messages -> conversations -> bot, all in one
-  // transaction so a failed delete never leaves half-removed data behind.
-  deleteBot: (id) => {
-    const result = db.transaction(() => {
-      db.prepare(`
-        DELETE FROM messages WHERE conversation_id IN (
-          SELECT id FROM conversations WHERE bot_id = ?
-        )
-      `).run(id);
-      db.prepare('DELETE FROM conversations WHERE bot_id = ?').run(id);
-      return db.prepare('DELETE FROM bots WHERE id = ?').run(id);
-    })();
-    return result.changes > 0;
-  }
+  addMessage,
+  getMessages,
+  deleteMessage,
+
+  deleteBot,
 };

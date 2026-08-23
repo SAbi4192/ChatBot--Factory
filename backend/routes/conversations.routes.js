@@ -8,24 +8,24 @@ import { validate, schemas } from '../middleware/validate.js';
 const router = Router();
 
 // Backwards-compatible endpoint (frontend historically posted here).
-router.post('/', validate(schemas.createConversation), (req, res) => {
+router.post('/', validate(schemas.createConversation), async (req, res) => {
   const { id, botId, title, createdAt } = req.body;
-  conversationService.createConversation(botId, { id, title, createdAt });
+  await conversationService.createConversation(botId, { id, title, createdAt });
   res.json({ success: true });
 });
 
-router.patch('/:convId', validate(schemas.renameConversation), (req, res) => {
-  conversationService.renameConversation(req.params.convId, req.body.title);
+router.patch('/:convId', validate(schemas.renameConversation), async (req, res) => {
+  await conversationService.renameConversation(req.params.convId, req.body.title);
   res.json({ success: true });
 });
 
-router.delete('/:convId', (req, res) => {
-  conversationService.deleteConversation(req.params.convId);
+router.delete('/:convId', async (req, res) => {
+  await conversationService.deleteConversation(req.params.convId);
   res.json({ success: true });
 });
 
-router.get('/:convId/messages', (req, res) => {
-  res.json(conversationService.getMessages(req.params.convId));
+router.get('/:convId/messages', async (req, res) => {
+  res.json(await conversationService.getMessages(req.params.convId));
 });
 
 export default router;
