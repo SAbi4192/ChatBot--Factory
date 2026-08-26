@@ -22,6 +22,9 @@ describe('API integration (Checkpoint 10)', () => {
   });
 
   afterAll(async () => {
+    // Force-close lingering keep-alive connections from supertest, otherwise
+    // server.close() never resolves and the hook times out (10s default).
+    server.closeAllConnections?.();
     await new Promise((r) => server.close(r));
   });
 
