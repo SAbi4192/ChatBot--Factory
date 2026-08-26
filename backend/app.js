@@ -49,12 +49,28 @@ export function createApp() {
   const isLocal = (origin) =>
     /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin || '');
 
-  app.use(cors({
-    origin(origin, callback) {
-      if (!origin || isLocal(origin) || allowedOrigins.includes(origin)) return callback(null, true);
-      callback(new Error(`Not allowed by CORS: ${origin}`));
-    },
-  }));
+  app.use((req, res, next) => {
+    cors({
+      origin(origin, callback) {
+        // 1) No origin (server-to-server, or same-origin without crossorigin)
+        if (!origin) return callback(null, true);
+        // 2) Dev / localhost
+        if (isLocal(origin)) return callback(null, true);
+        // 3) Explicit allowlist (CORS_ORIGINS)
+        if (allowedOrigins.includes(origin)) return callback(null, true);
+        // 4) Same-origin — Vite production builds add crossorigin to module
+        //    scripts (<script type="module" crossorigin>), which makes the
+        //    browser send an Origin header even for same-origin requests.
+        //    Without this check the /assets/* chunk requests would be rejected
+        //    on a fresh Render domain (not yet in CORS_ORIGINS).
+        try {
+          const u = new URL(origin);
+          if (u.host === req.headers.host) return callback(null, true);
+        } catch { /* malformed origin — fall through to reject */ }
+        callback(new Error(`Not allowed by CORS: ${origin}`));
+      },
+    })(req, res, next);
+  });
 
   // --- Body parsing + rate limiting ----------------------------------------------
   app.use('/api', apiLimiter);
