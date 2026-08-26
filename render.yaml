@@ -1,0 +1,33 @@
+# Render Blueprint — Scarlet Chatbot Factory
+# Created from the verified deployment plan (.kilo/plans/1787724471032-render-deploy-guide.md)
+#
+# Usage:
+#   Render dashboard → New + → Blueprint → connect SAbi4192/ChatBot--Factory
+#   Fill in the three "sync: false" env vars (Groq key, Gemini key, JWT secret) when prompted.
+#
+# Note: the local 2 GB GGUF model is intentionally NOT deployed (free plan cannot run it);
+# the app's router falls back to Groq/Gemini cloud AI automatically.
+
+services:
+  - type: web
+    name: chatbot-factory
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npx prisma generate && npm run build
+    startCommand: mkdir -p data && npx prisma migrate deploy && node backend/server.js
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: AI_PROVIDER
+        value: auto
+      - key: DATABASE_URL
+        value: file:../data/chatbot_factory.db
+      - key: GROQ_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
