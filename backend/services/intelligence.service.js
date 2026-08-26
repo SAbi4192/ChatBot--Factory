@@ -81,6 +81,37 @@ export async function forkConversation(convId, orgId, messageId, newText) {
   return { conversationId: branch.id, botId: source.botId, response };
 }
 
+/** Deterministic summary — used when no AI provider is reachable. */
+function deterministicSummary(messages) {
+  const userMsgs = messages.filter(m => m.role === 'user');
+  const botMsgs = messages.filter(m => m.role === 'assistant');
+  if (!userMsgs.length) return 'This conversation has no messages yet.';
+
+  const first = userMsgs[0].content.trim();
+  const last = userMsgs[userMsgs.length - 1].content.trim();
+
+  // Pair each user question with the answer that followed.
+  const pairs = [];
+  let botIdx = 0;
+  for (const u of userMsgs) {
+    const answer = botMsgs[botIdx]?.content ?? '';
+    botIdx++;
+    pairs.push({ q: u.content.trim(), a: answer.trim() });
+  }
+
+  const topics = pairs.slice(0, 5).map(({ q, a }) => {
+    const qShort = q.length > 80 ? q.slice(0, 80) + '…' : q;
+    const aShort = a ? (a.length > 110 ? a.slice(0, 110) + '…' : a) : 'no response';
+    return `• "${qShort}" — ${aShort}`;
+  });
+
+  const when = messages[0]?.createdAt ? new Date(messages[0].createdAt).toLocaleString() : '';
+  const head = `This conversation (${userMsgs.length} questions, ${botMsgs.length} answers${when ? `, started ${when}` : ''}) opened with "${first.slice(0, 90)}" and covered:`;
+  const tail = last !== first ? `\nIt ended with "${last.slice(0, 90)}".` : '';
+
+  return `${head}\n${topics.join('\n')}${tail}`;
+}
+
 /** Manual summarize button — LLM summary with offline heuristic fallback. */
 export async function summarizeConversation(convId, orgId) {
   await assertConvInOrg(convId, orgId);
@@ -92,8 +123,7 @@ export async function summarizeConversation(convId, orgId) {
   try {
     summary = await summarizeText(text);
   } catch {
-    const users = messages.filter((m) => m.role === 'user').slice(0, 5).map((m) => m.content);
-    summary = `Conversation covered ${messages.length} messages. Key topics: "${users.join('" · "')}"`;
+    summary = deterministicSummary(messages);
   }
   return summary;
 }

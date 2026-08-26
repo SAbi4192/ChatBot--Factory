@@ -46,10 +46,12 @@ export default function CustomBotCreator({ open, onClose }: { open: boolean; onC
   const [creating, setCreating] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Cycle placeholder examples while on the input screen.
+  // Cycle placeholder examples while on the input screen. Full reset on close
+  // so stale design state never leaks into the next open.
   useEffect(() => {
     if (!open) return;
     setPhase('input'); setDesign(null); setDesignDna(null); setError(null); setDescription('');
+    setCreating(false); setRegenerating(null); setExampleIdx(0);
     const t = setInterval(() => setExampleIdx((i) => (i + 1) % EXAMPLES.length), 2600);
     setTimeout(() => inputRef.current?.focus(), 120);
     return () => clearInterval(t);
@@ -89,7 +91,7 @@ export default function CustomBotCreator({ open, onClose }: { open: boolean; onC
     if (!design) return;
     setCreating(true);
     try {
-      const bot = await db.createCustomBot(description.trim());
+      const bot = await db.createCustomBot(description.trim(), design as unknown as Record<string, unknown>, designDna as Record<string, unknown>);
       onClose();
       navigate(`/chat/${bot.id}`);
     } catch (e) {

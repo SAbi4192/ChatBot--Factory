@@ -190,13 +190,21 @@ export async function regenerateSection(description, section, current) {
 
 /**
  * Create a custom bot and persist it. Returns the raw Prisma bot.
+ *
+ * `design` (and its `designDna`) may be supplied from a confirmed live
+ * preview — the exact design the user approved (including any regenerated
+ * sections) is persisted as-is. When omitted, a fresh design is generated.
  */
-export async function createCustomBot({ description }, orgId, userId) {
+export async function createCustomBot({ description, design: supplied, designDna: suppliedDna }, orgId, userId) {
   const desc = String(description || '').trim().slice(0, 500);
   if (!desc) throw new ApiError(400, 'Describe the bot you want to create');
 
-  const design = await designBot(desc);
-  const dna = designDnaFromTheme(design.theme);
+  const design = supplied && typeof supplied === 'object' && typeof supplied.name === 'string' && supplied.name.trim()
+    ? sanitizeDesign(supplied)
+    : await designBot(desc);
+  const dna = suppliedDna && typeof suppliedDna === 'object' && suppliedDna.primaryColor
+    ? suppliedDna
+    : designDnaFromTheme(design.theme);
   const now = new Date();
 
   const bot = await prisma.bot.create({

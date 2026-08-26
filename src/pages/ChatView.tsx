@@ -3,10 +3,12 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Bot, Conversation, Message } from '../types';
 import { db } from '../services/db';
+import { markBotSeen } from '../utils/seenBots';
 import {
   Send, ArrowLeft, Plus, Menu, X, RotateCcw, MessageSquare,
   Play, Pause, SkipForward, SkipBack, LogOut, Globe, Cpu, Cloud, ShieldAlert, BadgeCheck,
-  Copy, Pin, ThumbsUp, ThumbsDown, Share2, Pencil, Download, Sparkles, FileText,
+  Copy, Pin, ThumbsUp, ThumbsDown, Share2, Pencil, Download, Sparkles, FileText, Paperclip,
+  Mic, MicOff, Volume2, VolumeX, Languages, GitCompare, Loader2,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './ChatView.css';
@@ -28,9 +30,16 @@ function textOn(hex?: string) {
 const PROVIDERS: Record<string, { label: string; Icon: typeof Cpu; cls: string }> = {
   local:          { label: 'Local AI',     Icon: Cpu,         cls: 'p-local' },
   cloud:          { label: 'Cloud AI',      Icon: Cloud,       cls: 'p-cloud' },
+  groq:           { label: 'Cloud AI',      Icon: Cloud,       cls: 'p-cloud' },
+  gemini:         { label: 'Cloud AI',      Icon: Cloud,       cls: 'p-cloud' },
   web:            { label: 'Web-enhanced',  Icon: Globe,       cls: 'p-web' },
   'domain-guard': { label: 'Domain Guard',  Icon: ShieldAlert, cls: 'p-guard' },
   profile:        { label: 'Bot Profile',   Icon: BadgeCheck,  cls: 'p-profile' },
+};
+
+const LANG_CODES: Record<string, string> = {
+  ta: 'ta-IN', te: 'te-IN', kn: 'kn-IN', ml: 'ml-IN', bn: 'bn-IN',
+  hi: 'hi-IN', ja: 'ja-JP', zh: 'zh-CN', ar: 'ar-SA', ru: 'ru-RU', en: 'en-US',
 };
 
 const SHOWCASE_MS = 7000;
@@ -47,6 +56,59 @@ function download(filename: string, content: string, mime: string) {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Detect the spoken language of a text from its script, so TTS can pick a
+ * voice that can actually pronounce it (an English voice can't read Tamil).
+ */
+function langFromScript(text: string): string {
+  const t = String(text || '');
+  if (/[\u0B80-\u0BFF]/.test(t)) return 'ta';      // Tamil
+  if (/[\u0C00-\u0C7F]/.test(t)) return 'te';      // Telugu
+  if (/[\u0C80-\u0CFF]/.test(t)) return 'kn';      // Kannada
+  if (/[\u0D00-\u0D7F]/.test(t)) return 'ml';      // Malayalam
+  if (/[\u0980-\u09FF]/.test(t)) return 'bn';      // Bengali
+  if (/[\u0900-\u097F]/.test(t)) return 'hi';      // Hindi / Marathi
+  if (/[\u3040-\u30FF\u3400-\u9FFF]/.test(t)) return 'ja'; // Japanese / Chinese
+  if (/[\u0600-\u06FF]/.test(t)) return 'ar';      // Arabic
+  if (/[\u0400-\u04FF]/.test(t)) return 'ru';      // Russian
+  return 'en';
+}
+
+/**
+ * Pick a female voice for a language code when one exists. Windows/Edge ship
+ * voices like Microsoft Heera (hi-IN), Shyamala (ta-IN), Shruti (te-IN),
+ * Sobha (ml-IN), Sapna (kn-IN), Nanami (ja-JP).
+ */
+function pickFemaleVoiceFor(voices: SpeechSynthesisVoice[], lang: string): SpeechSynthesisVoice | null {
+  const matches = voices.filter(v => (v.lang || '').toLowerCase().startsWith(lang));
+  const female =
+    matches.find(v => /female|zira|samantha|victoria|karen|susan|moira|tessa|fiona|ava|jenny|aria|libby|sonia|natural|heera|priya|shyamala|shruti|sobha|sapna|nanami|tanishaa|nancy|amala|ananya|ishani|kavya|madhu|swara|geetha|vani/i.test(v.name)) ||
+    matches.find(v => /female/i.test(v.name)) ||
+    matches[0] || null;
+  return female;
+}
+
+/**
+ * Display-time emoji cleanup. Old messages stored before the backend cleaner
+ * existed can contain emoji overload ("🌟✨💫 …" × 100). Collapse runs of 3+
+ * identical emojis to one and cap the total at 8 — display only; the raw
+ * content is preserved for copy/export.
+ */
+function tidyForDisplay(text: string): string {
+  let s = String(text || '');
+  s = s.replace(/(\p{Extended_Pictographic})(?:\s*\1){2,}/gu, '$1');
+  let count = 0;
+  let out = '';
+  for (const ch of s) {
+    if (/\p{Extended_Pictographic}/u.test(ch)) {
+      count += 1;
+      if (count > 8) continue;
+    }
+    out += ch;
+  }
+  return out;
 }
 
 export default function ChatView() {
@@ -71,12 +133,16 @@ export default function ChatView() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
   const [summary, setSummary] = useState<string | null>(null);
+  const [summaryForConv, setSummaryForConv] = useState<string | null>(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [showGuard, setShowGuard] = useState(false);
 
   const endRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const lastUserText = useRef<string>('');
 
   /* ---- load bot + conversations ---- */
@@ -88,6 +154,7 @@ export default function ChatView() {
     db.getBot(botId).then(found => {
       if (!alive) return;
       if (!found) { setNotFound(true); return; }
+      markBotSeen(botId);
       setBot(found);
       db.getConversationsByBot(botId).then(convs => {
         if (!alive) return;
@@ -146,7 +213,7 @@ export default function ChatView() {
   const send = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || !activeConvId || !botId || isTyping) return;
-    lastUserText.current = trimmed;
+    stopSpeaking();
     setError(null);
     setMessages(prev => [...prev, {
       id: `u-${Date.now()}`, role: 'user', content: trimmed,
@@ -161,26 +228,16 @@ export default function ChatView() {
     try {
       // Try SSE streaming first; fall back to the plain POST on any failure.
       try {
-        const meta = await db.streamChat(botId, activeConvId, trimmed, (token) => {
+        await db.streamChat(botId, activeConvId, trimmed, (token) => {
           setStreamingText(prev => (prev ?? '') + token);
         });
-        setMessages(prev => [...prev, {
-          id: meta.messageId, role: 'assistant', content: meta.streamed ? (streamingTextRef.current ?? '') : meta.provider === 'profile' ? meta.sources?.[0] ?? '' : '',
-          provider: meta.provider, sources: meta.sources,
-        }]);
         setStreamingText(null);
-        // For non-streamed responses (profile/guard), fetch the persisted message.
-        if (meta.streamed === false || meta.provider === 'profile' || meta.provider === 'domain-guard') {
-          const msgs = await db.getMessages(activeConvId);
-          setMessages(prev => {
-            const userMsgs = prev.filter(m => m.role === 'user');
-            const serverMsgs = msgs.filter(m => m.role === 'assistant');
-            const merged = [...userMsgs.slice(0, -1), ...serverMsgs.slice(-1)];
-            const lastUser = userMsgs[userMsgs.length - 1];
-            if (lastUser) merged.unshift(lastUser);
-            return merged;
-          });
-        }
+        // The server is the single source of truth: both the user message and
+        // the reply are persisted before streamChat resolves, so reload the
+        // whole thread. The previous merge kept only the LAST assistant reply
+        // and silently dropped every earlier message from the UI.
+        const msgs = await db.getMessages(activeConvId);
+        setMessages(msgs);
       } catch {
         // Fallback: non-streaming POST.
         const data = await db.sendMessage(botId, activeConvId, trimmed);
@@ -203,10 +260,6 @@ export default function ChatView() {
       setStreamingText(null);
     }
   };
-
-  // Track the streamed text for the final message body (avoids stale closure).
-  const streamingTextRef = useRef('');
-  streamingTextRef.current = streamingText ?? '';
 
   const retry = () => { if (lastUserText.current) resend(lastUserText.current); };
   const resend = async (text: string) => {
@@ -312,12 +365,19 @@ export default function ChatView() {
 
   const summarize = async () => {
     if (!activeConvId) return;
+    // If we already have a summary for this conversation, just open the panel.
+    if (summary && summaryForConv === activeConvId) { setSummaryOpen(true); return; }
+    setSummarizing(true);
+    setSummaryOpen(true);
     try {
       const { summary: s } = await db.summarizeConversation(activeConvId);
       setSummary(s);
+      setSummaryForConv(activeConvId);
       toast.success('Conversation summarized');
     } catch (e) {
       toast.error((e as Error).message);
+    } finally {
+      setSummarizing(false);
     }
   };
 
@@ -346,6 +406,192 @@ export default function ChatView() {
     const el = e.currentTarget;
     el.style.height = 'auto';
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !botId) return;
+    try {
+      toast.info(`Uploading ${file.name}…`);
+      await db.uploadDocument(botId, file);
+      toast.success(`${file.name} uploaded to knowledge base!`);
+    } catch (err) {
+      toast.error(`Upload failed: ${(err as Error).message}`);
+    }
+    e.target.value = '';
+  };
+
+  // ---- Voice input (Web Speech API, no backend needed) ----
+  const [listening, setListening] = useState(false);
+  const recRef = useRef<{ stop: () => void } | null>(null);
+  const toggleVoice = () => {
+    const SR = (window as unknown as Record<string, unknown>).SpeechRecognition || (window as unknown as Record<string, unknown>).webkitSpeechRecognition;
+    if (!SR) { toast.error('Voice input is not supported in this browser — try Chrome or Edge'); return; }
+    if (listening) { recRef.current?.stop(); setListening(false); return; }
+    const rec = new (SR as new () => {
+      lang: string; interimResults: boolean;
+      start: () => void; stop: () => void;
+      onresult: (e: { results?: Array<Array<{ transcript?: string }>> }) => void;
+      onend: () => void; onerror: () => void;
+    })();
+    rec.lang = 'en-US';
+    rec.interimResults = false;
+    rec.onresult = (e) => {
+      const text = e.results?.[0]?.[0]?.transcript ?? '';
+      if (text) setInputValue(v => (v ? v + ' ' : '') + text);
+    };
+    rec.onend = () => setListening(false);
+    rec.onerror = () => { setListening(false); toast.error('Could not hear you — please try again'); };
+    recRef.current = rec;
+    rec.start();
+    setListening(true);
+  };
+
+  // ---- Text-to-speech (per-message speak button) ----
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  // Prefer a young female English voice (Samantha, Zira, Google US English…).
+  const femaleVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  const audioRefs = useRef<HTMLAudioElement[]>([]);
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis?.getVoices?.() ?? [];
+      if (!voices.length) return;
+      const en = voices.filter(v => /^en[-_]/.test(v.lang || ''));
+      const pool = en.length ? en : voices;
+      femaleVoiceRef.current =
+        pool.find(v => /female|zira|samantha|victoria|karen|susan|moira|tessa|fiona|ava|jenny|aria|libby|sonia|natural/i.test(v.name)) ||
+        pool[0] || null;
+    };
+    loadVoices();
+    window.speechSynthesis?.addEventListener?.('voiceschanged', loadVoices);
+    return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', loadVoices);
+  }, []);
+
+  const stopSpeaking = () => {
+    window.speechSynthesis?.cancel?.();
+    audioRefs.current.forEach(a => { try { a.pause(); a.src = ''; } catch { /* noop */ } });
+    audioRefs.current = [];
+    setSpeakingId(null);
+  };
+
+  // Google Translate TTS — free, no key, correct pronunciation for Indian
+  // languages the browser's local voices often can't handle. The audio is
+  // streamed through OUR backend (/api/tts) so the browser never hits
+  // cross-origin blocking with translate.google.com. Long text is split into
+  // ≤180-char chunks played in sequence.
+  const googleTtsUrl = (text: string, tl: string) =>
+    `/api/tts?tl=${tl}&q=${encodeURIComponent(text)}`;
+
+  const speakViaGoogle = (text: string, tl: string, onDone: () => void, onFail: (err?: unknown) => void) => {
+    const chunks: string[] = [];
+    let rest = String(text || '');
+    while (rest.length > 180 && chunks.length < 5) { chunks.push(rest.slice(0, 180)); rest = rest.slice(180); }
+    if (rest) chunks.push(rest);
+    let i = 0;
+    const playNext = () => {
+      if (i >= chunks.length) { onDone(); return; }
+      const audio = new Audio(googleTtsUrl(chunks[i], tl));
+      audioRefs.current.push(audio);
+      audio.onended = () => { i += 1; playNext(); };
+      audio.onerror = () => { onFail(new Error(`audio failed for chunk ${i}`)); };
+      audio.play().catch((e) => onFail(e));
+    };
+    playNext();
+  };
+
+  const speakLocal = (text: string) => {
+    const u = new SpeechSynthesisUtterance(text);
+    const lang = langFromScript(text);
+    // Always set the utterance language so the browser matches a voice that
+    // can actually pronounce the script (e.g. "Google தமிழ்").
+    u.lang = LANG_CODES[lang] || 'en-US';
+    const voice = pickFemaleVoiceFor(window.speechSynthesis.getVoices() ?? [], lang);
+    if (voice) u.voice = voice;
+    u.pitch = 1.12;
+    u.rate = 1;
+    u.onend = () => setSpeakingId(null);
+    u.onerror = () => {
+      // Local engine failed silently — fall back to online Google TTS.
+      speakViaGoogle(text, lang === 'zh' ? 'zh-CN' : lang, () => setSpeakingId(null), (err) => { setSpeakingId(null); toast.error(`Speech unavailable (${err instanceof Error ? err.message : 'unknown error'})`); });
+    };
+    window.speechSynthesis.speak(u);
+  };
+
+  const speak = (text: string, id: string) => {
+    const hasLocal = 'speechSynthesis' in window;
+    if (!hasLocal && typeof Audio === 'undefined') { toast.error('Speech is not supported in this browser'); return; }
+    if (speakingId === id) { stopSpeaking(); return; }
+    stopSpeaking();
+    const plain = text.replace(/[#*`_>\[\]()]/g, ' ').replace(/\s+/g, ' ').slice(0, 2000);
+    setSpeakingId(id);
+    const lang = langFromScript(plain);
+    // Non-English (Tamil/Hindi/Telugu/…): the browser's local voices are
+    // unreliable for these scripts, so use Google's online TTS first — it
+    // always pronounces them correctly. English keeps the young female voice.
+    if (lang === 'en') {
+      if (hasLocal) {
+        // Chrome bug: speaking immediately after cancel() can silently fail.
+        setTimeout(() => speakLocal(plain), 60);
+      } else {
+        speakViaGoogle(plain, 'en', () => setSpeakingId(null), (err) => { setSpeakingId(null); toast.error(`Speech unavailable (${err instanceof Error ? err.message : 'unknown error'})`); });
+      }
+    } else {
+      speakViaGoogle(plain, lang === 'zh' ? 'zh-CN' : lang, () => setSpeakingId(null), () => {
+        if (hasLocal) setTimeout(() => speakLocal(plain), 60);
+        else { setSpeakingId(null); toast.error('Speech unavailable for this language — check your connection'); }
+      });
+    }
+  };
+
+  // ---- Live model comparison (local vs Groq vs Gemini) ----
+  const [compareOpen, setCompareOpen] = useState(false);
+  const [comparing, setComparing] = useState(false);
+  const [compareQuery, setCompareQuery] = useState('');
+  const [compareResults, setCompareResults] = useState<Array<{ provider: string; model: string; response: string }>>([]);
+  const openCompare = async () => {
+    const lastUser = [...messages].reverse().find(m => m.role === 'user');
+    const q = inputValue.trim() || lastUser?.content || lastUserText.current;
+    if (!q || !botId) { toast.info('Type a message or ask something first'); return; }
+    setCompareQuery(q);
+    setCompareOpen(true);
+    setComparing(true);
+    setCompareResults([]);
+    try {
+      const { results } = await Promise.race([
+        db.compareModels(botId, q),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Compare timed out (60s) — one of the providers is too slow')), 60000)),
+      ]);
+      setCompareResults(results);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  // ---- Per-message translation ----
+  const [translations, setTranslations] = useState<Record<string, { lang: string; text: string }>>({});
+  const [translateMenuFor, setTranslateMenuFor] = useState<string | null>(null);
+  const [translatingId, setTranslatingId] = useState<string | null>(null);
+  const LANGUAGES: Array<[string, string]> = [
+    ['ta', 'தமிழ்'], ['te', 'తెలుగు'], ['hi', 'हिन्दी'], ['ml', 'മലയാളം'],
+    ['kn', 'ಕನ್ನಡ'], ['ja', '日本語'], ['en', 'English'],
+  ];
+  const translateMessage = async (msg: { id: string; content: string }, lang: string) => {
+    setTranslateMenuFor(null);
+    setTranslatingId(msg.id);
+    try {
+      const { translation } = await db.translateText(msg.content, lang);
+      setTranslations(prev => ({ ...prev, [msg.id]: { lang, text: translation } }));
+      toast.success(`Translated to ${LANGUAGES.find(([c]) => c === lang)?.[1] ?? lang}`);
+    } catch (e) {
+      const m = (e as Error).message;
+      toast.error(/404|not found/i.test(m)
+        ? 'Translation service is not running — restart the backend (npm run server)'
+        : `Translation failed: ${m}`);
+    } finally {
+      setTranslatingId(null);
+    }
   };
 
   const setPlay = (p: boolean) =>
@@ -383,17 +629,21 @@ export default function ChatView() {
     '--c-on-primary': onPrimary,
     '--c-radius': d.borderRadius || '14px',
     '--c-font': d.fontFamily || "'Inter', system-ui, sans-serif",
+    '--c-heading': d.headingFont || 'inherit',
   } as React.CSSProperties;
 
   const layout = (d.layout || 'Center').toLowerCase();
   const style = (d.messageStyle || 'Bubbles').toLowerCase();
   const bg = (d.backgroundStyle || 'Solid').toLowerCase();
+  const shape = d.avatarShape || 'round';
+  const radius = d.radiusScale || 'medium';
+  const glow = d.accentGlow ? 'on' : 'off';
   const welcomeLines = (bot.welcomeMessage || '').split('\n').filter(Boolean);
   const showStreaming = streamingText !== null && streamingText !== undefined;
 
   return (
     <div
-      className={`chat-wrapper layout-${layout} style-${style} bg-${bg} ${d.mono ? 'is-mono' : ''} ${d.mode === 'light' ? 'is-light' : 'is-dark'} ${drawerOpen ? 'drawer-open' : ''}`}
+      className={`chat-wrapper layout-${layout} style-${style} bg-${bg} shape-${shape} rad-${radius} glow-${glow} ${d.mono ? 'is-mono' : ''} ${d.mode === 'light' ? 'is-light' : 'is-dark'} ${drawerOpen ? 'drawer-open' : ''}`}
       style={themeVars}
     >
       {/* history panel / drawer */}
@@ -409,6 +659,10 @@ export default function ChatView() {
         <button className="cv-newchat" onClick={() => createConversation()}>
           <Plus /> New chat
         </button>
+        <div className="cv-history-label mono">
+          <span>Conversations</span>
+          <span className="cv-history-count">{conversations.length}</span>
+        </div>
         <div className="cv-history">
           {conversations.map(c => (
             <button
@@ -427,7 +681,7 @@ export default function ChatView() {
 
       <main className="chat-main">
         <header className="cv-header">
-          <button className="cv-menu" onClick={() => setDrawerOpen(true)} aria-label="Open history">
+          <button className="cv-menu" onClick={() => setDrawerOpen(true)} aria-label="Open conversation history" title="Conversation history">
             <Menu />
           </button>
           <span className="cv-avatar" style={{ background: d.primaryColor, color: onPrimary }}>
@@ -445,6 +699,9 @@ export default function ChatView() {
             </button>
             <button className="cv-act" onClick={() => navigate(`/kb/${botId}`)} title="Knowledge base (RAG)">
               <FileText /> <span className="hide-mobile">Knowledge</span>
+            </button>
+            <button className="cv-act" onClick={openCompare} title="Compare AI models side by side">
+              <GitCompare /> <span className="hide-mobile">Compare</span>
             </button>
             <button className="cv-act" onClick={summarize} title="Summarize conversation">
               <Sparkles /> <span className="hide-mobile">Summarize</span>
@@ -474,7 +731,7 @@ export default function ChatView() {
           <div className="cv-ctx" title={`~${ctxUsed.toLocaleString()} tokens used of ~${CTX_WINDOW_TOKENS.toLocaleString()} window`}>
             <div className="cv-ctx-bar"><div className="cv-ctx-fill" style={{ width: `${ctxPct}%` }} /></div>
             <span className="cv-ctx-label mono">context {ctxPct}%</span>
-            <button className="cv-act" style={{ padding: '0.1rem 0.4rem', fontSize: '0.62rem' }} onClick={() => setShowGuard(o => !o)} title="Why did the guard allow/refuse?">
+            <button className="cv-act" onClick={() => setShowGuard(o => !o)} title="Why did the guard allow/refuse?">
               <ShieldAlert style={{ width: 12, height: 12 }} /> guard
             </button>
           </div>
@@ -494,13 +751,6 @@ export default function ChatView() {
 
         <div className="cv-messages">
           <div className="cv-messages-inner">
-            {summary && (
-              <div className="cv-summary">
-                <span className="cv-summary-label mono">SUMMARY</span>
-                <p>{summary}</p>
-                <button className="cv-summary-close" onClick={() => setSummary(null)} aria-label="Dismiss summary"><X /></button>
-              </div>
-            )}
 
             {pinnedMsgs.length > 0 && (
               <div className="cv-pinned">
@@ -543,7 +793,7 @@ export default function ChatView() {
                       )}
                       <div className="cv-bubble">
                         {msg.role === 'assistant'
-                          ? <div className="cv-md"><ReactMarkdown>{msg.content}</ReactMarkdown></div>
+                          ? <div className="cv-md"><ReactMarkdown>{tidyForDisplay(msg.content)}</ReactMarkdown></div>
                           : editingId === msg.id ? (
                             <div className="cv-edit">
                               <textarea
@@ -558,12 +808,33 @@ export default function ChatView() {
                                 <button className="cv-edit-cancel" onClick={() => setEditingId(null)}>Cancel</button>
                               </div>
                             </div>
-                          ) : <div className="cv-usertext">{msg.content}</div>}
+                          ) : <div className="cv-usertext">{tidyForDisplay(msg.content)}</div>}
 
                         {msg.sources && msg.sources.length > 0 && (
                           <div className="cv-sources">
                             <span className="cv-sources-h mono">Sources</span>
                             <ul>{msg.sources.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                          </div>
+                        )}
+
+                        {translations[msg.id] && (
+                          <div className="cv-translation">
+                            <span className="cv-translation-label mono">
+                              {LANGUAGES.find(([c]) => c === translations[msg.id].lang)?.[1] ?? translations[msg.id].lang}
+                            </span>
+                            <div className="cv-translation-text">{translations[msg.id].text}</div>
+                            <div className="cv-translation-actions">
+                              <button
+                                className={speakingId === `tr-${msg.id}` ? 'cv-translation-speak on' : 'cv-translation-speak'}
+                                onClick={() => speak(translations[msg.id].text, `tr-${msg.id}`)}
+                                title={speakingId === `tr-${msg.id}` ? 'Stop reading' : 'Read the translation aloud'}
+                              >
+                                <Volume2 /> {speakingId === `tr-${msg.id}` ? 'Stop' : 'Listen'}
+                              </button>
+                              <button className="cv-translation-clear" onClick={() => setTranslations(prev => { const n = { ...prev }; delete n[msg.id]; return n; })}>
+                                <X style={{ width: 11, height: 11 }} /> Remove
+                              </button>
+                            </div>
                           </div>
                         )}
 
@@ -576,6 +847,8 @@ export default function ChatView() {
                           <button className={msg.pinned ? 'on' : ''} onClick={() => pinMessage(msg)} title={msg.pinned ? 'Unpin' : 'Pin'}><Pin /></button>
                           {msg.role === 'assistant' && (
                             <>
+                              <button className={speakingId === msg.id ? 'on' : ''} onClick={() => speak(msg.content, msg.id)} title={speakingId === msg.id ? 'Stop reading' : 'Read aloud'}><Volume2 /></button>
+                              <button onClick={() => setTranslateMenuFor(translateMenuFor === msg.id ? null : msg.id)} title="Translate"><Languages /></button>
                               <button className={msg.rating === 1 ? 'on' : ''} onClick={() => react(msg, 1)} title="Helpful"><ThumbsUp /></button>
                               <button className={msg.rating === -1 ? 'on' : ''} onClick={() => react(msg, -1)} title="Not helpful"><ThumbsDown /></button>
                             </>
@@ -583,16 +856,30 @@ export default function ChatView() {
                         </div>
 
                         {(prov || (msg.role === 'assistant' && isLast)) && (
-                          <div className="cv-meta">
-                            {prov && (
-                              <span className={`cv-provider ${prov.cls}`}>
-                                <prov.Icon /> {prov.label}
-                              </span>
-                            )}
-                            {msg.role === 'assistant' && isLast && !isTyping && !showStreaming && (
-                              <button className="cv-regen" onClick={regenerate} disabled={regenerating}>
-                                <RotateCcw /> {regenerating ? 'Regenerating…' : 'Regenerate'}
-                              </button>
+                          <div className="cv-meta-wrap">
+                            <div className="cv-meta">
+                              {prov && (
+                                <span className={`cv-provider ${prov.cls}`}>
+                                  <prov.Icon /> {prov.label}
+                                </span>
+                              )}
+                              {msg.role === 'assistant' && (
+                                <button className="cv-meta-translate" onClick={() => setTranslateMenuFor(translateMenuFor === msg.id ? null : msg.id)} disabled={translatingId === msg.id} title="Translate this message">
+                                  {translatingId === msg.id ? <Loader2 className="spin" style={{ width: 12, height: 12 }} /> : <Languages />} Translate
+                                </button>
+                              )}
+                              {msg.role === 'assistant' && isLast && !isTyping && !showStreaming && (
+                                <button className="cv-regen" onClick={regenerate} disabled={regenerating}>
+                                  <RotateCcw /> {regenerating ? 'Regenerating…' : 'Regenerate'}
+                                </button>
+                              )}
+                            </div>
+                            {translateMenuFor === msg.id && (
+                              <div className="cv-translate-menu">
+                                {LANGUAGES.map(([code, label]) => (
+                                  <button key={code} onClick={() => translateMessage(msg, code)}>{label}</button>
+                                ))}
+                              </div>
                             )}
                           </div>
                         )}
@@ -608,7 +895,7 @@ export default function ChatView() {
                       {initials(bot.name)}
                     </span>
                     <div className="cv-bubble">
-                      <div className="cv-md"><ReactMarkdown>{streamingText}</ReactMarkdown><span className="cv-cursor" /></div>
+                      <div className="cv-md"><ReactMarkdown>{tidyForDisplay(streamingText ?? '')}</ReactMarkdown><span className="cv-cursor" /></div>
                     </div>
                   </div>
                 )}
@@ -638,6 +925,29 @@ export default function ChatView() {
 
         <div className="cv-composer">
           <div className="cv-composer-inner">
+            <button
+              className={`cv-attach-btn ${listening ? 'is-listening' : ''}`}
+              onClick={toggleVoice}
+              title={listening ? 'Stop listening' : 'Voice input (speak your message)'}
+              aria-label={listening ? 'Stop listening' : 'Voice input'}
+            >
+              {listening ? <MicOff /> : <Mic />}
+            </button>
+            <button
+              className="cv-attach-btn"
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload document to knowledge base"
+              aria-label="Upload document to knowledge base"
+            >
+              <Paperclip />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              accept=".txt,.pdf,.md,.csv,.docx"
+              onChange={handleFileUpload}
+            />
             <textarea
               ref={taRef}
               className="cv-input"
@@ -663,6 +973,13 @@ export default function ChatView() {
         </div>
       </main>
 
+      {/* Floating stop button — visible whenever speech is active */}
+      {speakingId && (
+        <button className="cv-stop-speech" onClick={stopSpeaking} title="Stop reading aloud" aria-label="Stop reading aloud">
+          <VolumeX /> Stop reading
+        </button>
+      )}
+
       {isShowcase && (
         <div className="cv-showcase">
           <span className="cv-showcase-label mono">SHOWCASE</span>
@@ -673,6 +990,84 @@ export default function ChatView() {
           <button onClick={() => goShowcase(1)} title="Next"><SkipForward /></button>
           <button onClick={() => navigate('/library')} title="Exit showcase"><LogOut /></button>
           {playing && <span key={bot.id} className="cv-showcase-bar" style={{ animationDuration: `${SHOWCASE_MS}ms` }} />}
+        </div>
+      )}
+
+      {/* Conversation summary panel (slides in from the right, inside the chat) */}
+      {summaryOpen && (
+        <>
+          <div className="cv-summary-scrim" onClick={() => setSummaryOpen(false)} />
+          <aside className="cv-summary-panel" role="dialog" aria-label="Conversation summary">
+            <div className="cv-summary-head">
+              <div style={{ minWidth: 0 }}>
+                <div className="cv-summary-title">Conversation summary</div>
+                <div className="cv-summary-sub mono">FULL THREAD → CONDENSED</div>
+              </div>
+              <button className="cv-summary-close" onClick={() => setSummaryOpen(false)} aria-label="Close summary" title="Close">
+                <X />
+              </button>
+            </div>
+            <div className="cv-summary-body">
+              {summarizing ? (
+                <div className="cv-summary-loading">
+                  <Loader2 className="spin" />
+                  <p>Condensing the conversation…</p>
+                </div>
+              ) : summary ? (
+                <div className="cv-md"><ReactMarkdown>{summary}</ReactMarkdown></div>
+              ) : (
+                <p style={{ color: 'var(--c-muted)', fontSize: '0.88rem' }}>No summary yet — click Summarize in the header.</p>
+              )}
+            </div>
+            {summary && (
+              <div className="cv-summary-foot">
+                <button className="cv-summary-copy" onClick={() => { navigator.clipboard.writeText(summary); toast.success('Summary copied'); }}>
+                  <Copy /> Copy summary
+                </button>
+              </div>
+            )}
+          </aside>
+        </>
+      )}
+
+      {/* Live model comparison modal */}
+      {compareOpen && (
+        <div className="cv-compare-overlay" onClick={() => setCompareOpen(false)}>
+          <div className="cv-compare" onClick={(e) => e.stopPropagation()}>
+            <div className="cv-compare-head">
+              <div style={{ minWidth: 0 }}>
+                <div className="cv-compare-title">Model comparison</div>
+                <div className="cv-compare-query">{compareQuery.slice(0, 120)}{compareQuery.length > 120 ? '…' : ''}</div>
+              </div>
+              <button className="cv-compare-close" onClick={() => setCompareOpen(false)} title="Close"><X /></button>
+            </div>
+            {comparing ? (
+              <div className="cv-compare-loading">
+                <Loader2 className="spin" />
+                <p>Asking all three models…</p>
+              </div>
+            ) : compareResults.length === 0 ? (
+              <p className="cv-compare-loading">No providers responded — add a Groq or Gemini key in .env to see cloud answers.</p>
+            ) : (
+              <div className="cv-compare-grid">
+                {compareResults.map((r) => (
+                  <div key={r.provider} className={`cv-compare-col p-${r.provider}`}>
+                    <div className="cv-compare-col-head">
+                      <span className={`cv-provider p-${r.provider}`}>{r.model || r.provider}</span>
+                      <button
+                        className="cv-compare-speak"
+                        onClick={() => speak(r.response, `cmp-${r.provider}`)}
+                        title={speakingId === `cmp-${r.provider}` ? 'Stop reading' : 'Read aloud'}
+                      >
+                        <Volume2 />
+                      </button>
+                    </div>
+                    <div className="cv-compare-body">{r.response}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

@@ -71,7 +71,9 @@ export async function register({ email, name, password }) {
         email: normalized,
         name: name || normalized.split('@')[0],
         passwordHash: await hashPassword(password),
-        role: 'admin', // a personal workspace owner is its admin
+        // Global platform role is 'editor'; the personal workspace ownership
+        // below is what grants 'admin' inside their own org.
+        role: 'editor',
       },
     });
     const org = await tx.organization.create({

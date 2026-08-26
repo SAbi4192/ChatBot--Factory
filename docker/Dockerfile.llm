@@ -1,0 +1,22 @@
+# ============================================================
+# Scarlet Chatbot Factory — local LLM image (optional)
+# Serves the GGUF model over HTTP (llama-cpp-python).
+# Enable with:  docker compose --profile llm up
+# Mount your model at /app/models/llm-model.gguf
+# ============================================================
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY run_llm.py ./
+
+ENV LOCAL_MODEL_PATH=/app/models/llm-model.gguf
+ENV LOCAL_LLM_PORT=8000
+ENV LLM_N_CTX=4096
+
+EXPOSE 8000
+
+CMD ["python", "run_llm.py"]

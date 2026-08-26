@@ -82,16 +82,24 @@ export default function OrgSettingsView() {
 
   const changeRole = async (userId: string, role: string) => {
     if (!orgId) return;
-    await db.setMemberRole(orgId, userId, role);
-    toast.success('Role updated');
-    load();
+    try {
+      await db.setMemberRole(orgId, userId, role);
+      toast.success('Role updated');
+      load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   };
 
   const removeMember = async (userId: string) => {
     if (!orgId) return;
-    await db.removeMember(orgId, userId);
-    toast.success('Member removed');
-    load();
+    try {
+      await db.removeMember(orgId, userId);
+      toast.success('Member removed');
+      load();
+    } catch (e) {
+      toast.error((e as Error).message);
+    }
   };
 
   const createWorkspace = async () => {
@@ -213,7 +221,9 @@ export default function OrgSettingsView() {
             <h3>Members</h3>
             <p className="card-desc">People with access to this workspace and their roles.</p>
             <div>
-              {members.map((m) => (
+              {members.length === 0 ? (
+                <p style={{ color: 'var(--fg-faint)', fontSize: '0.85rem' }}>No members in this workspace.</p>
+              ) : (members.map((m) => (
                 <div className="member-row" key={m.userId}>
                   <span className="side-user-avatar" style={{ width: 30, height: 30, fontSize: '0.7rem' }}>
                     {(m.name || m.email).slice(0, 2).toUpperCase()}
@@ -241,7 +251,7 @@ export default function OrgSettingsView() {
                     <Button variant="ghost" size="sm" onClick={() => removeMember(m.userId)}>Remove</Button>
                   )}
                 </div>
-              ))}
+              )))}
             </div>
           </Card>
 

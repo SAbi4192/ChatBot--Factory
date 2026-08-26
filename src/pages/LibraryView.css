@@ -217,7 +217,10 @@
   transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
   z-index: 4;
 }
-.bot-card:hover .bot-actions { opacity: 1; transform: translateY(0); }
+.bot-card:hover .bot-actions, .bot-card:focus-within .bot-actions { opacity: 1; transform: translateY(0); }
+@media (hover: none) and (pointer: coarse) {
+  .bot-actions { opacity: 1; transform: none; }
+}
 .bot-actions button {
   display: grid;
   place-items: center;
@@ -326,6 +329,42 @@
   color: var(--fg-faint);
 }
 .bot-chats svg { width: 13px; height: 13px; }
+
+/* ---- Hover preview (personality + welcome) ---- */
+.bot-preview {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  z-index: 30;
+  padding: 0.9rem 1rem;
+  background: var(--panel-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lg);
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease);
+}
+.bot-card:hover .bot-preview { opacity: 1; transform: translateY(0); }
+.bot-preview-inner { display: flex; flex-direction: column; gap: 0.2rem; }
+.bot-preview-label {
+  font-size: 0.58rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-faint);
+}
+.bot-preview-text {
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--fg-dim);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* ---- Load more ---- */
 .lib-more { display: grid; place-items: center; margin-top: 2rem; }

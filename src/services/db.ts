@@ -295,11 +295,15 @@ export const db = {
     });
   },
 
-  async createCustomBot(description: string): Promise<Bot> {
+  async createCustomBot(
+    description: string,
+    design?: Record<string, unknown>,
+    designDna?: Record<string, unknown>
+  ): Promise<Bot> {
     return json('/api/bots/custom', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description })
+      body: JSON.stringify({ description, design, designDna })
     });
   },
 
@@ -574,6 +578,14 @@ export const db = {
       body: JSON.stringify({ botId, conversationId: 'compare', message })
     });
   },
+
+  async translateText(text: string, lang: string): Promise<{ translation: string }> {
+    return json('/api/chat/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, lang })
+    });
+  },
 };
 
 export interface AnalyticsOverview {
@@ -590,6 +602,7 @@ export interface AnalyticsOverview {
     respHist: Array<{ label: string; value: number }>;
     heatmap: Array<{ hour: number; Mon: number; Tue: number; Wed: number; Thu: number; Fri: number; Sat: number; Sun: number }>;
     convLenHist: Array<{ label: string; value: number }>;
+    sentiment: Array<{ day: string; sentiment: number | null; messages: number; positiveShare: number | null }>;
   };
   unresolved: Array<{ content: string; createdAt: number }>;
 }

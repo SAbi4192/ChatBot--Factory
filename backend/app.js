@@ -67,6 +67,31 @@ export function createApp() {
   app.use('/api/public', publicRoutes);
   app.use('/', widgetRoutes);
 
+  // --- Text-to-speech proxy (public) ------------------------------------------------
+  // Streams Google Translate TTS through our own backend so the browser never
+  // hits cross-origin/blocking issues with translate.google.com. One chunk
+  // (~180 chars) per request; the frontend queues chunks for long messages.
+  // Rate-limited by the /api limiter above.
+  app.get('/api/tts', async (req, res) => {
+    const q = String(req.query.q || '').trim().slice(0, 180);
+    const tl = String(req.query.tl || 'en').slice(0, 10);
+    if (!q) return res.status(400).json({ error: 'Missing q parameter' });
+    try {
+      const upstream = await fetch(
+        `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=${encodeURIComponent(tl)}&total=1&idx=0&q=${encodeURIComponent(q)}`,
+        { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } }
+      );
+      if (!upstream.ok) return res.status(502).json({ error: `TTS upstream failed (${upstream.status})` });
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      if (!buf.length) return res.status(502).json({ error: 'TTS upstream returned empty audio' });
+      res.setHeader('Content-Type', 'audio/mpeg');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      res.send(buf);
+    } catch (e) {
+      res.status(502).json({ error: `TTS upstream unreachable: ${e.message}` });
+    }
+  });
+
   // --- Protected API routes (JWT + org scoping) -------------------------------------
   app.use('/api/orgs', requireAuth, orgRoutes);
   app.use('/api/bots', requireAuth, botRoutes);

@@ -137,7 +137,11 @@ export default function KBView() {
           marginBottom: '1.4rem',
           cursor: 'pointer',
         }}
-        onClick={() => fileRef.current?.click()}
+        onClick={() => { if (!uploading) fileRef.current?.click(); }}
+        role="button"
+        tabIndex={0}
+        aria-label="Upload documents to the knowledge base"
+        onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === ' ') && !uploading) { e.preventDefault(); fileRef.current?.click(); } }}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={(e) => { e.preventDefault(); setDragging(false); upload(e.dataTransfer.files); }}
@@ -186,9 +190,9 @@ export default function KBView() {
             {docs.map((d) => (
               <div className="member-row" key={d.id}>
                 <FileText style={{ width: 16, height: 16, color: 'var(--accent)' }} />
-                <span style={{ minWidth: 0, flex: 1 }}>
-                  <span className="m-name">{d.name}</span>
-                  <span className="m-email"> {d.chunkCount} chunks</span>
+                <span style={{ minWidth: 0, flex: 1, overflow: 'hidden' }}>
+                  <span className="m-name" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.name}</span>
+                  <span className="m-email" style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{d.chunkCount} chunks</span>
                 </span>
                 {d.status === 'ready' ? <Badge tone="success"><CheckCircle2 /> Ready</Badge>
                   : d.status === 'failed' ? <Badge tone="error"><XCircle /> Failed</Badge>
@@ -220,7 +224,7 @@ export default function KBView() {
               <Input value={memQuery} onChange={(e) => setMemQuery(e.target.value)} placeholder="What does this bot remember about…" onKeyDown={(e) => e.key === 'Enter' && recall()} />
               <Button variant="ghost" onClick={recall}><SearchIcon /></Button>
             </div>
-            {memHits.length > 0 && (
+            {memHits.length > 0 ? (
               <div style={{ marginTop: '0.8rem', display: 'grid', gap: '0.4rem' }}>
                 {memHits.map((h, i) => (
                   <div key={i} className="cv-pinned-item" style={{ fontSize: '0.8rem', padding: '0.5rem 0.7rem', background: 'var(--bg-tertiary)', borderRadius: 8 }}>
@@ -229,7 +233,11 @@ export default function KBView() {
                   </div>
                 ))}
               </div>
-            )}
+            ) : memQuery.trim() ? (
+              <p style={{ marginTop: '0.8rem', fontSize: '0.82rem', color: 'var(--fg-dim)' }}>
+                No memories match that query — try different wording.
+              </p>
+            ) : null}
           </>
         )}
       </Card>

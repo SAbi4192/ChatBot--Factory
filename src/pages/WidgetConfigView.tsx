@@ -12,8 +12,8 @@ export default function WidgetConfigView() {
   const [botName, setBotName] = useState('this bot');
   const [embedCode, setEmbedCode] = useState('');
   const [showPreview, setShowPreview] = useState(true);
-  const [soundOn, setSoundOn] = useState(true);
-  const [prechatOn, setPrechatOn] = useState(false);
+  const [soundOn, setSoundOn] = useState(() => localStorage.getItem(`cbf:widget:sound:${botId}`) !== 'off');
+  const [prechatOn, setPrechatOn] = useState(() => localStorage.getItem(`cbf:widget:prechat:${botId}`) === 'on');
 
   useEffect(() => {
     if (!botId) return;
@@ -24,7 +24,20 @@ export default function WidgetConfigView() {
     });
   }, [botId]);
 
+  const toggleSound = (on: boolean) => {
+    setSoundOn(on);
+    if (botId) localStorage.setItem(`cbf:widget:sound:${botId}`, on ? 'on' : 'off');
+    toast.success(on ? 'Sound notifications enabled' : 'Sound notifications muted');
+  };
+
+  const togglePrechat = (on: boolean) => {
+    setPrechatOn(on);
+    if (botId) localStorage.setItem(`cbf:widget:prechat:${botId}`, on ? 'on' : 'off');
+    toast.success(on ? 'Pre-chat form enabled' : 'Pre-chat form disabled');
+  };
+
   const copy = async () => {
+    if (!embedCode) return;
     await navigator.clipboard.writeText(embedCode);
     toast.success('Embed code copied — paste it into any page');
   };
@@ -45,10 +58,10 @@ export default function WidgetConfigView() {
             <h3>Embed code</h3>
             <p className="card-desc">Copy this snippet into the <code>&lt;head&gt;</code> of any HTML page.</p>
             <div className="invite-code" style={{ display: 'block', padding: '1rem 1.2rem' }}>
-              <code style={{ fontSize: '0.82rem', letterSpacing: '0.02em', wordBreak: 'break-all' }}>{embedCode}</code>
+              <code style={{ fontSize: '0.82rem', letterSpacing: '0.02em', wordBreak: 'break-all' }}>{embedCode || 'Loading embed code…'}</code>
             </div>
             <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
-              <Button variant="primary" onClick={copy}><Copy /> Copy</Button>
+              <Button variant="primary" onClick={copy} disabled={!embedCode}><Copy /> Copy</Button>
               <Button variant="ghost" onClick={() => setShowPreview(o => !o)}><Eye /> {showPreview ? 'Hide preview' : 'Show preview'}</Button>
             </div>
           </Card>
@@ -57,12 +70,12 @@ export default function WidgetConfigView() {
             <h3>Widget settings</h3>
             <p className="card-desc">Configuration applied to the embedded chat.</p>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1rem' }}>
-              <Switch checked={soundOn} onChange={setSoundOn} label="Sound notifications" />
-              <div><div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Sound notifications</div><div style={{ fontSize: '0.78rem', color: 'var(--fg-faint)' }}>Play a tone on new messages</div></div>
+              <Switch checked={soundOn} onChange={toggleSound} label="Sound notifications" />
+              <div><div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Sound notifications</div><div style={{ fontSize: '0.78rem', color: 'var(--fg-dim)' }}>Play a tone on new messages</div></div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-              <Switch checked={prechatOn} onChange={setPrechatOn} label="Pre-chat form" />
-              <div><div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Pre-chat form</div><div style={{ fontSize: '0.78rem', color: 'var(--fg-faint)' }}>Collect name + email before chatting</div></div>
+              <Switch checked={prechatOn} onChange={togglePrechat} label="Pre-chat form" />
+              <div><div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Pre-chat form</div><div style={{ fontSize: '0.78rem', color: 'var(--fg-dim)' }}>Collect name + email before chatting</div></div>
             </div>
           </Card>
 

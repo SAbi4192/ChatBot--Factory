@@ -1,200 +1,126 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Cpu, Globe, ShieldCheck, Wand2 } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Sparkles, Dices, ArrowRight, Cpu, Globe, ShieldCheck } from 'lucide-react';
 import { db, type ProviderStatus } from '../services/db';
-import CustomBotCreator from '../components/CustomBotCreator';
 import './FactoryView.css';
 
-const PRESETS = [10, 100, 500, 1000];
-
-const STAGES = [
-  { code: 'DNA', label: 'Design DNA' },
-  { code: 'DMN', label: 'Domain profile' },
-  { code: 'PSN', label: 'Personality matrix' },
-  { code: 'PRS', label: 'Persist to store' },
-];
-
-const clamp = (n: number) => Math.max(1, Math.min(5000, Math.floor(n) || 1));
-
 export default function FactoryView() {
-  const [count, setCount] = useState<number>(1000);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [produced, setProduced] = useState(0);
-  const [stageIdx, setStageIdx] = useState(0);
-  const [health, setHealth] = useState<ProviderStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [creatorOpen, setCreatorOpen] = useState(false);
   const navigate = useNavigate();
+  const [health, setHealth] = useState<ProviderStatus | null>(null);
+  const [botCount, setBotCount] = useState(0);
 
   useEffect(() => {
     db.getHealth().then(setHealth).catch(() => setHealth(null));
+    db.getBots().then(bots => setBotCount(bots.length)).catch(() => {});
   }, []);
 
-  const runProduction = async (n: number, onDone: (sampleId?: string) => void) => {
-    setError(null);
-    setIsGenerating(true);
-    setProduced(0);
-    setStageIdx(0);
-
-    // The backend caps each generate call at 50 bots, so db.addBots loops in
-    // batches for larger orders. The counter shown to the user eases toward
-    // the REAL batch progress, so the run feels alive whether it takes one
-    // API call or twenty — and it never reports bots that don't exist yet.
-    let actual = 0;      // real progress reported by the API batches
-    let displayed = 0;   // eased counter rendered in the UI
-    let rafId = 0;
-    let stopped = false;
-
-    const tick = () => {
-      if (stopped) return;
-      displayed = Math.min(actual, displayed + Math.max(1, Math.ceil((actual - displayed) * 0.12)));
-      setProduced(displayed);
-      setStageIdx(Math.min(STAGES.length - 1, Math.floor((displayed / Math.max(1, n)) * STAGES.length)));
-      rafId = requestAnimationFrame(tick);
-    };
-
-    try {
-      rafId = requestAnimationFrame(tick);
-      const res = await db.addBots(n, (soFar) => { actual = soFar; });
-      actual = n;
-      // Let the eased counter catch up to the final value before moving on.
-      while (displayed < n && !stopped) {
-        await new Promise(r => setTimeout(r, 40));
-      }
-      stopped = true;
-      cancelAnimationFrame(rafId);
-      setProduced(n);
-      setStageIdx(STAGES.length - 1);
-      await new Promise(r => setTimeout(r, 300));
-      onDone(res?.sample?.id);
-    } catch {
-      stopped = true;
-      cancelAnimationFrame(rafId);
-      setIsGenerating(false);
-      setError('Could not reach the factory backend. Start it with the backend server, then try again.');
-    }
-  };
-
-  const handleGenerate = () => {
-    const n = clamp(count);
-    setCount(n);
-    runProduction(n, () => navigate('/library'));
-  };
-
-  // ---- Generation (production run) screen ----
-  if (isGenerating) {
-    const target = Math.max(produced, 1);
-    const pct = Math.min(100, (produced / (count || 1)) * 100);
-    return (
-      <div className="fv-center">
-        <div className="fv-run">
-          <div className="eyebrow">Production run</div>
-          <div className="fv-run-counter mono">
-            <span className="fv-run-now">{produced.toLocaleString()}</span>
-            <span className="fv-run-sep">/</span>
-            <span className="fv-run-target">{count.toLocaleString()}</span>
-          </div>
-          <div className="fv-run-label">specialized assistants manufactured</div>
-
-          <div className="fv-rail"><div className="fv-rail-fill" style={{ width: `${pct}%` }} /></div>
-
-          <ul className="fv-stages">
-            {STAGES.map((s, i) => (
-              <li key={s.code} className={i < stageIdx ? 'done' : i === stageIdx ? 'active' : ''}>
-                <span className="fv-stage-code mono">{s.code}</span>
-                <span className="fv-stage-name">{s.label}</span>
-                <span className="fv-stage-state mono">{i < stageIdx ? 'OK' : i === stageIdx ? '···' : ''}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="fv-run-note mono">ONE ENGINE · {target > 1 ? 'BULK TRANSACTION' : 'SINGLE UNIT'}</div>
-        </div>
-      </div>
-    );
-  }
-
-  // ---- Idle / console screen ----
   return (
-    <div>
-      <main className="fv-main container">
-        <section className="fv-hero">
-          <div className="eyebrow">Universal bot foundry</div>
+    <div className="fv-hub">
+      <div className="fv-hub-particles" aria-hidden="true">
+        {Array.from({ length: 16 }).map((_, i) => (
+          <i key={i} style={{
+            left: `${(i * 61) % 100}%`,
+            animationDelay: `${(i % 8) * 0.9}s`,
+            animationDuration: `${8 + (i % 5) * 2}s`,
+            width: `${3 + (i % 3)}px`,
+            height: `${3 + (i % 3)}px`,
+          }} />
+        ))}
+      </div>
+      <div className="container">
+        <motion.div
+          className="fv-hub-header"
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <div className="eyebrow">Scarlet Foundry</div>
           <h1 className="fv-title">
-            Manufacture specialized<br />AI assistants <span className="accent">at scale</span>.
+            What would you like<br />to <span className="accent">create</span> today?
           </h1>
           <p className="fv-lede">
-            One frontend, one backend, one local model. Set a quantity and the foundry
-            procedurally forges that many domain-bound assistants — each with its own
-            specialty, personality, guardrails, and visual identity.
+            Choose your creation method. Design a custom assistant with AI,
+            or manufacture hundreds of specialized bots at scale.
           </p>
-          <div className="fv-features">
-            <span className="fv-chip mono"><Cpu /> Local-first inference</span>
-            <span className="fv-chip mono"><ShieldCheck /> Domain-guarded</span>
-            <span className="fv-chip mono"><Globe /> Web AI when current</span>
-          </div>
+        </motion.div>
 
-          <div className="fv-custom-cta">
-            <button className="fv-custom-btn" onClick={() => setCreatorOpen(true)}>
-              <span className="fv-custom-icon"><Wand2 /></span>
-              <span>
-                <strong>Create a custom bot</strong>
-                <small className="mono">Describe it in plain English — AI designs everything</small>
-              </span>
-              <ArrowRight className="fv-custom-arrow" />
-            </button>
-          </div>
+        <div className="fv-hub-cards">
+          {/* Custom Chatbot Card */}
+          <motion.button
+            className="fv-hub-card"
+            onClick={() => navigate('/factory/custom')}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            whileHover={{ y: -4, scale: 1.01 }}
+          >
+            <div className="fv-hub-card-icon custom"><Sparkles /></div>
+            <div className="fv-hub-card-content">
+              <h2>Custom Chatbot</h2>
+              <span className="fv-hub-card-sub mono">Scarlet Studio</span>
+              <p>
+                Describe your bot in plain English. AI designs everything —
+                name, personality, theme, welcome message, and starter questions.
+              </p>
+              <div className="fv-hub-card-features">
+                <span className="fv-chip mono"><Sparkles /> AI-designed</span>
+                <span className="fv-chip mono"><ShieldCheck /> Custom personality</span>
+                <span className="fv-chip mono"><Cpu /> Unique theme</span>
+              </div>
+            </div>
+            <div className="fv-hub-card-cta">
+              <span>Open Studio</span> <ArrowRight />
+            </div>
+          </motion.button>
+
+          {/* Random Chatbots Card */}
+          <motion.button
+            className="fv-hub-card"
+            onClick={() => navigate('/factory/random')}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            whileHover={{ y: -4, scale: 1.01 }}
+          >
+            <div className="fv-hub-card-icon random"><Dices /></div>
+            <div className="fv-hub-card-content">
+              <h2>Random Chatbots</h2>
+              <span className="fv-hub-card-sub mono">Scarlet Foundry</span>
+              <p>
+                Manufacture specialized AI assistants at scale. Set a quantity
+                and the foundry forges that many domain-bound bots instantly.
+              </p>
+              <div className="fv-hub-card-features">
+                <span className="fv-chip mono"><Cpu /> Local-first inference</span>
+                <span className="fv-chip mono"><ShieldCheck /> Domain-guarded</span>
+                <span className="fv-chip mono"><Globe /> Web AI when current</span>
+              </div>
+            </div>
+            <div className="fv-hub-card-cta">
+              <span>Open Foundry</span> <ArrowRight />
+            </div>
+          </motion.button>
+        </div>
+
+        {/* Quick stats */}
+        <motion.div
+          className="fv-hub-stats mono"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          <span>{botCount} bots in library</span>
+          <span className="fv-hub-stats-sep">·</span>
           {health && (
-            <div className="fv-providers mono" style={{ marginTop: '1.2rem' }} title="AI providers detected by the backend">
-              <span><i className={`dot ${health.local ? 'on' : 'off'}`} /> LOCAL</span>
-              <span><i className={`dot ${health.groq ? 'on' : 'off'}`} /> GROQ</span>
-              <span><i className={`dot ${health.gemini ? 'on' : 'off'}`} /> GEMINI</span>
-            </div>
+            <>
+              <span><i className={`dot ${health.local ? 'on' : 'off'}`} /> Local</span>
+              <span><i className={`dot ${health.groq ? 'on' : 'off'}`} /> Groq</span>
+              <span><i className={`dot ${health.gemini ? 'on' : 'off'}`} /> Gemini</span>
+            </>
           )}
-        </section>
-
-        <section className="fv-console" aria-label="Production console">
-          <div className="fv-console-head">
-            <span className="mono">PRODUCTION QUANTITY</span>
-            <span className="mono fv-range">1 – 5000</span>
-          </div>
-
-          <div className="fv-console-body">
-            <div className="fv-qty">
-              <input
-                type="number"
-                className="fv-qty-input mono"
-                value={count}
-                min={1}
-                max={5000}
-                onChange={(e) => setCount(parseInt(e.target.value) || 0)}
-                onBlur={() => setCount(c => clamp(c))}
-                aria-label="Number of chatbots to generate"
-              />
-              <span className="fv-qty-unit mono">units</span>
-            </div>
-
-            <div className="fv-presets">
-              {PRESETS.map(p => (
-                <button
-                  key={p}
-                  className={`fv-preset mono ${count === p ? 'sel' : ''}`}
-                  onClick={() => setCount(p)}
-                >
-                  {p.toLocaleString()}
-                </button>
-              ))}
-            </div>
-
-            <button className="btn btn-primary fv-produce" onClick={handleGenerate}>
-              Produce {clamp(count).toLocaleString()} <ArrowRight />
-            </button>
-
-            {error && <div className="fv-error mono">{error}</div>}
-          </div>
-        </section>
-      </main>
-
-      <CustomBotCreator open={creatorOpen} onClose={() => setCreatorOpen(false)} />
+        </motion.div>
+      </div>
     </div>
   );
 }

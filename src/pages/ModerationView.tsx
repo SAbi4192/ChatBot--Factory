@@ -21,7 +21,8 @@ interface FlaggedMsg {
 export default function ModerationView() {
   const [items, setItems] = useState<FlaggedMsg[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<{ id: string; action: 'approve' | 'block' } | null>(null);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const load = () => {
     db.getFlagged().then(setItems).catch(() => setItems([])).finally(() => setLoading(false));
@@ -29,7 +30,7 @@ export default function ModerationView() {
   useEffect(load, []);
 
   const approve = async (id: string) => {
-    setBusy(id);
+    setBusy({ id, action: 'approve' });
     try {
       await db.approveFlagged(id);
       toast.success('Message approved');
@@ -39,7 +40,7 @@ export default function ModerationView() {
   };
 
   const block = async (id: string) => {
-    setBusy(id);
+    setBusy({ id, action: 'block' });
     try {
       await db.blockFlagged(id);
       toast.success('Message blocked and removed');
@@ -79,7 +80,18 @@ export default function ModerationView() {
               <div className="member-row" key={m.id} style={{ alignItems: 'flex-start' }}>
                 <ShieldAlert style={{ width: 16, height: 16, color: 'var(--error)', marginTop: 3 }} />
                 <span style={{ minWidth: 0, flex: 1 }}>
-                  <span className="m-name" style={{ fontWeight: 500, display: 'block' }}>{m.content.slice(0, 160)}{m.content.length > 160 ? '…' : ''}</span>
+                  <span className="m-name" style={{ fontWeight: 500, display: 'block', whiteSpace: 'pre-wrap' }}>
+                    {expanded === m.id ? m.content : `${m.content.slice(0, 160)}${m.content.length > 160 ? '…' : ''}`}
+                  </span>
+                  {m.content.length > 160 && (
+                    <button
+                      className="link-more"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.72rem', marginTop: '0.3rem' }}
+                      onClick={() => setExpanded(expanded === m.id ? null : m.id)}
+                    >
+                      {expanded === m.id ? 'Show less' : 'Show full message'}
+                    </button>
+                  )}
                   <span className="m-email">{m.botName} · {m.conversationTitle || 'Untitled'}</span>
                 </span>
                 <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
@@ -91,11 +103,11 @@ export default function ModerationView() {
                   <Badge tone="success">approved</Badge>
                 ) : (
                   <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <Button variant="ghost" size="sm" onClick={() => approve(m.id)} disabled={busy === m.id}>
-                      {busy === m.id ? <Loader2 className="spin" /> : <Check />} Approve
+                    <Button variant="ghost" size="sm" onClick={() => approve(m.id)} disabled={busy?.id === m.id && busy.action === 'approve'}>
+                      {busy?.id === m.id && busy.action === 'approve' ? <Loader2 className="spin" /> : <Check />} Approve
                     </Button>
-                    <Button variant="danger" size="sm" onClick={() => block(m.id)} disabled={busy === m.id}>
-                      {busy === m.id ? <Loader2 className="spin" /> : <Ban />} Block
+                    <Button variant="danger" size="sm" onClick={() => block(m.id)} disabled={busy?.id === m.id && busy.action === 'block'}>
+                      {busy?.id === m.id && busy.action === 'block' ? <Loader2 className="spin" /> : <Ban />} Block
                     </Button>
                   </div>
                 )}

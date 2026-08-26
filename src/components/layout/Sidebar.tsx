@@ -2,15 +2,15 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Factory, LayoutDashboard, Bot, BarChart3, LayoutTemplate,
-  PanelLeftClose, PanelLeftOpen, Factory as LogoIcon,
+  LayoutDashboard, Bot, BarChart3, LayoutTemplate,
+  PanelLeftClose, PanelLeftOpen, Factory as LogoIcon, Sparkles,
   ChevronsUpDown, User as UserIcon, LogOut, Building2, Check, Search as SearchIcon, ShieldAlert, UserRound,
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
-  { to: '/factory', label: 'Factory', icon: Factory },
+  { to: '/factory', label: 'Create Bot', icon: Sparkles },
   { to: '/library', label: 'Library', icon: Bot },
 ];
 
@@ -68,8 +68,8 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         </span>
         {!collapsed && (
           <span className="word">
-            Chatbot Factory
-            <small>universal engine · v4</small>
+            Scarlet
+            <small>Chatbot Factory</small>
           </span>
         )}
       </div>

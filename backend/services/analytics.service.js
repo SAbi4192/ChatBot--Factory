@@ -31,6 +31,35 @@ const groupBy = (rows, keyFn, valFn) => {
   return [...map.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 };
 
+// ---- Lightweight lexicon sentiment (offline, deterministic) ----
+const POSITIVE = new Set([
+  'good', 'great', 'awesome', 'excellent', 'amazing', 'love', 'loved', 'nice', 'best', 'better',
+  'happy', 'glad', 'thank', 'thanks', 'thankful', 'helpful', 'works', 'working', 'perfect',
+  'wonderful', 'fantastic', 'superb', 'cool', 'impressive', 'satisfied', 'enjoyed', 'easy',
+  'clear', 'fast', 'quick', 'solved', 'fixed', 'resolved', 'yay', 'awesome', 'brilliant', 'fun',
+  'safe', 'comfortable', 'pleased', 'grateful', 'appreciate', 'greatly', 'recommend', 'awesome',
+]);
+const NEGATIVE = new Set([
+  'bad', 'terrible', 'awful', 'hate', 'hated', 'worst', 'worse', 'sad', 'unhappy', 'angry',
+  'annoying', 'useless', 'broken', 'fails', 'failed', 'error', 'errors', 'problem', 'problems',
+  'issue', 'issues', 'bug', 'bugs', 'slow', 'confusing', 'difficult', 'hard', 'pain', 'painful',
+  'hurt', 'hurts', 'wrong', 'not working', 'doesnt work', 'disappointed', 'frustrated',
+  'frustrating', 'terrible', 'horrible', 'stupid', 'waste', 'useless', 'unclear', 'scared',
+  'worried', 'anxiety', 'scary', 'failed', 'crash', 'crashes', 'unhelpful', 'poor',
+]);
+
+/** Rough sentiment in [-1, 1]: fraction of positive minus negative word hits. */
+function sentimentScore(text) {
+  const words = String(text || '').toLowerCase().replace(/[^a-z\s']/g, ' ').split(/\s+/).filter(Boolean);
+  let score = 0;
+  let hits = 0;
+  for (const w of words) {
+    if (POSITIVE.has(w)) { score += 1; hits += 1; }
+    else if (NEGATIVE.has(w)) { score -= 1; hits += 1; }
+  }
+  return hits ? score / hits : 0;
+}
+
 /** Grand overview for the org. */
 export async function getOverview(orgId) {
   const since30 = daysAgo(30);
@@ -145,6 +174,22 @@ export async function getOverview(orgId) {
     take: 10,
   });
 
+  // Sentiment trend (7d) — lexicon-based, offline, deterministic.
+  const since7 = daysAgo(7);
+  const sentMsgs = await prisma.message.findMany({
+    where: { conversation: { bot: { orgId } }, createdAt: { gte: since7 } },
+    select: { content: true, createdAt: true },
+  });
+  const sentimentSeries = Array.from({ length: 7 }, (_, i) => {
+    const d = daysAgo(6 - i);
+    const next = new Date(d.getTime() + DAY_MS);
+    const day = sentMsgs.filter((m) => m.createdAt >= d && m.createdAt < next);
+    const scores = day.map((m) => sentimentScore(m.content || ''));
+    const avg = scores.length ? scores.reduce((a, b) => a + b, 0) / scores.length : null;
+    const pos = scores.filter((s) => s > 0).length;
+    return { day: d.toISOString().slice(5, 10), sentiment: avg === null ? null : Number(avg.toFixed(2)), messages: scores.length, positiveShare: scores.length ? Math.round((pos / scores.length) * 100) : null };
+  });
+
   const totalRating = feedback.reduce((a, f) => a + f.rating, 0);
   const csat = feedback.length ? Math.round(((feedback.filter((f) => f.rating === 1).length) / feedback.length) * 100) : null;
   const avgResponseMs = withMs.length ? Math.round(withMs.reduce((a, m) => a + m.responseMs, 0) / withMs.length) : null;
@@ -155,7 +200,7 @@ export async function getOverview(orgId) {
       avgResponseMs, csat,
     },
     series: { conversations: convSeries, csat: csatSeries, tokens: tokenSeries },
-    charts: { providerDist, topBots, domainDist, respHist, heatmap, convLenHist },
+    charts: { providerDist, topBots, domainDist, respHist, heatmap, convLenHist, sentiment: sentimentSeries },
     unresolved: unresolved.map((u) => ({ content: u.content, createdAt: u.createdAt.getTime() })),
   };
 }

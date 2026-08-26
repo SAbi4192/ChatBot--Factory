@@ -231,6 +231,16 @@ export const DOMAIN_LEXICON = {
     'journaling', 'coping', 'emotional', 'overwhelmed',
     'concentration', 'motivation', 'work-life balance'
   ],
+  dental: [
+    'dental', 'dentist', 'dentists', 'teeth', 'tooth', 'toothache', 'toothbrush',
+    'toothpaste', 'floss', 'flossing', 'brushing', 'cavity', 'cavities', 'gum', 'gums',
+    'gum disease', 'gingivitis', 'plaque', 'tartar', 'scaling', 'root planing',
+    'root canal', 'whitening', 'braces', 'orthodontics', 'mouthwash', 'bad breath',
+    'halitosis', 'sensitivity', 'wisdom tooth', 'oral care', 'oral hygiene',
+    'dental care', 'dental health', 'dentures', 'implant', 'implants', 'crown',
+    'crowns', 'filling', 'fillings', 'extraction', 'molar', 'molars', 'enamel',
+    'smile', 'dental floss', 'electric toothbrush', 'water flosser'
+  ],
 
   // ---------------------------------------------------------------- Banking
   // 'balance' alone was too greedy ("work-life balance", "balance the equation"),

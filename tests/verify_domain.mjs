@@ -27,11 +27,11 @@ async function expect(bot, question, shouldAnswer, note = '') {
 }
 
 const botCache = new Map();
-function findBot(domain, subdomain) {
+async function findBot(domain, subdomain) {
   const key = `${domain}|${subdomain}`;
   if (botCache.has(key)) return botCache.get(key);
   for (let i = 0; i < 8000; i++) {
-    const b = generateSingleBot();
+    const b = await generateSingleBot();
     if (b.domain === domain && b.subdomain === subdomain) { botCache.set(key, b); return b; }
   }
   throw new Error(`Could not generate ${domain} · ${subdomain}`);
@@ -109,7 +109,7 @@ for (const q of [
    2. NEWLY GENERATED Hardware bot
    ============================================================ */
 console.log('\n=== 2. NEW Technology · Hardware bot ===');
-const hw = findBot('Technology', 'Hardware');
+const hw = await findBot('Technology', 'Hardware');
 console.log(`  bot: ${hw.name}`);
 for (const q of ['Which is Best Intel or AMD?', 'Tell me the lastest Version of ryzen 9 series?',
   'hello', 'what can you do', 'What graphics card should I buy?']) await expect(hw, q, true);
@@ -119,7 +119,7 @@ for (const q of ['Suggest a good biryani recipe', 'Who won the cricket match yes
    3. GRADED ACCEPTANCE TABLE — Legal · Immigration (spec #49)
    ============================================================ */
 console.log('\n=== 3. Legal · Immigration acceptance table ===');
-const legal = findBot('Legal', 'Immigration');
+const legal = await findBot('Legal', 'Immigration');
 console.log(`  bot: ${legal.name}`);
 const legalCases = [
   ['How can I move to the USA from India?', true],
@@ -141,7 +141,7 @@ for (const [q, want] of legalCases) await expect(legal, q, want);
 console.log('\n=== 4. Greetings/meta across domains ===');
 const seen = new Set();
 for (let i = 0; i < 600 && seen.size < 10; i++) {
-  const b = generateSingleBot();
+  const b = await generateSingleBot();
   if (seen.has(b.domain)) continue;
   seen.add(b.domain);
   await expect(b, 'hi', true, `(${b.domain})`);
@@ -301,7 +301,7 @@ const battery = {
 for (const [key, questions] of Object.entries(battery)) {
   const [d, s] = key.split('|');
   let b;
-  try { b = findBot(d, s); } catch { console.log(`  (skip ${d}·${s} — not in generator)`); continue; }
+  try { b = await findBot(d, s); } catch { console.log(`  (skip ${d}·${s} — not in generator)`); continue; }
   console.log(`  -- ${d} · ${s} (${b.name}) --`);
   for (const q of questions) await expect(b, q, true);
 }
@@ -327,7 +327,7 @@ const victims = [
 ];
 for (const [d, s] of victims) {
   let b;
-  try { b = findBot(d, s); } catch { continue; }
+  try { b = await findBot(d, s); } catch { continue; }
   console.log(`  -- ${d} · ${s} --`);
   for (const [q, ownerDomain] of offTopic) {
     if (ownerDomain === d) continue; // not off-topic for its own owner

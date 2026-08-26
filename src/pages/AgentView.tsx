@@ -16,6 +16,7 @@ interface QueueItem {
 
 export default function AgentView() {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [active, setActive] = useState<{ session: QueueItem; messages: Array<{ id: string; role: string; content: string; provider?: string; createdAt: number }>; canned: Array<{ id: string; label: string; text: string }> } | null>(null);
   const [replyText, setReplyText] = useState('');
   const [suggestion, setSuggestion] = useState('');
@@ -26,6 +27,7 @@ export default function AgentView() {
       const q = await db.getAgentQueue();
       setQueue(q);
     } catch { setQueue([]); }
+    finally { setLoading(false); }
   };
   useEffect(() => { load(); const t = setInterval(load, 5000); return () => clearInterval(t); }, []);
 
@@ -92,7 +94,11 @@ export default function AgentView() {
         {/* Queue */}
         <Card>
           <div className="dash-section-title"><span>Queue ({queue.length})</span></div>
-          {queue.length === 0 ? (
+          {loading ? (
+            <div style={{ display: 'grid', gap: '0.5rem', padding: '0.5rem 0' }}>
+              {[0, 1, 2].map((i) => <div key={i} className="skeleton" style={{ height: 44, borderRadius: 8 }} />)}
+            </div>
+          ) : queue.length === 0 ? (
             <EmptyState icon={<CheckCircle />} title="All clear" description="No conversations waiting for a human agent." />
           ) : (
             <div>
@@ -108,7 +114,7 @@ export default function AgentView() {
         </Card>
 
         {/* Active session */}
-        <Card style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh' }}>
+        <Card style={{ display: 'flex', flexDirection: 'column', maxHeight: '70vh', minHeight: 0 }}>
           {active ? (
             <>
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
@@ -122,7 +128,7 @@ export default function AgentView() {
                   <p style={{ marginTop: 4 }}>{suggestion}</p>
                 </div>
               )}
-              <div style={{ flex: 1, overflowY: 'auto', marginBottom: '0.8rem' }}>
+              <div style={{ flex: 1, overflowY: 'auto', minHeight: 0, marginBottom: '0.8rem' }}>
                 {active.messages.map((m) => (
                   <div key={m.id} style={{ marginBottom: '0.6rem', padding: '0.5rem 0.7rem', background: m.role === 'user' ? 'var(--bg-tertiary)' : 'transparent', borderRadius: 8, fontSize: '0.85rem', lineHeight: 1.55 }}>
                     <span className="mono" style={{ fontSize: '0.62rem', color: 'var(--fg-faint)', textTransform: 'uppercase' }}>{m.role}{m.provider === 'agent' ? ' (agent reply)' : ''}</span>
@@ -133,7 +139,7 @@ export default function AgentView() {
               {/* Canned responses */}
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.5rem' }}>
                 {active.canned.map((c) => (
-                  <button key={c.id} className="bot-provenance" style={{ cursor: 'pointer' }} onClick={() => applyCanned(c.text)} title={c.text}>
+                  <button key={c.id} style={{ padding: '0.4rem 0.7rem', fontSize: '0.72rem', border: '1px solid var(--signal-line)', borderRadius: 999, background: 'var(--accent-subtle)', color: 'var(--accent)', cursor: 'pointer' }} onClick={() => applyCanned(c.text)} title={c.text}>
                     {c.label}
                   </button>
                 ))}

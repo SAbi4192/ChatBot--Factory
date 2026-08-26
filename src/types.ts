@@ -2,7 +2,7 @@
 export type ThemeType = string;
 export type LayoutType = 'Center' | 'Sidebar' | 'Focus' | 'Terminal';
 export type MessageStyleType = 'Bubbles' | 'Cards' | 'Compact' | 'Terminal';
-export type BackgroundStyleType = 'Solid' | 'Gradient' | 'Mesh' | 'Grid';
+export type BackgroundStyleType = 'Solid' | 'Gradient' | 'Mesh' | 'Grid' | 'Dots' | 'Orbits';
 
 export interface DesignDNA {
   theme: ThemeType;
@@ -11,7 +11,11 @@ export interface DesignDNA {
   messageStyle: MessageStyleType;
   backgroundStyle: BackgroundStyleType;
   fontFamily: string;
+  headingFont?: string;
   mono?: boolean;
+  avatarShape?: 'round' | 'squircle' | 'square';
+  radiusScale?: 'soft' | 'medium' | 'sharp';
+  accentGlow?: boolean;
   borderRadius: string;
   // Full palette (all optional so older records still parse)
   bg?: string;

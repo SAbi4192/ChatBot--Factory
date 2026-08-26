@@ -27,6 +27,11 @@ export const schemas = {
     conversationId: shortId,
   }),
 
+  translate: z.object({
+    text: z.string().trim().min(1).max(4000),
+    lang: z.string().trim().min(2).max(40),
+  }),
+
   // POST /api/bots/:botId/conversations — everything optional, server fills in.
   createConversationUnderBot: z.object({
     id: shortId.optional(),
@@ -107,6 +112,8 @@ export const schemas = {
 
   customBotCreate: z.object({
     description: z.string().trim().min(3).max(500),
+    design: z.record(z.any()).optional(),
+    designDna: z.record(z.any()).optional(),
   }),
 
   // ---- Conversation intelligence (Checkpoint 4) ----

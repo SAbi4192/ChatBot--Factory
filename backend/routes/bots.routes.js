@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import * as botService from '../services/bot.service.js';
 import * as conversationService from '../services/conversation.service.js';
+import { logActivity } from '../services/audit.service.js';
 import { validate, schemas } from '../middleware/validate.js';
 import { aiLimiter } from '../middleware/rateLimits.js';
 
@@ -20,6 +21,16 @@ router.post('/generate', aiLimiter, validate(schemas.generateBots), async (req, 
   try {
     const { count } = req.body;
     const { bots, count: n, capped, quota } = await botService.generateBots(count, req.org.id);
+    if (n > 0) {
+      await logActivity({
+        orgId: req.org.id,
+        actorId: req.user.id,
+        actorName: req.user.email,
+        eventType: 'bot.factory_created',
+        data: { count: n },
+        botId: bots[0]?.id ?? null,
+      });
+    }
     res.json({ success: true, count: n, capped, sample: bots[0], quota });
   } catch (e) { next(e); }
 });

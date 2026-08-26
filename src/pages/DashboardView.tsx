@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  ArrowRight, Bot as BotIcon, Factory, MessageSquare, Sparkles, BarChart3,
+  ArrowRight, Bot as BotIcon, Factory, MessageSquare, Sparkles,
   LayoutTemplate, Cpu, Globe, ShieldCheck, Lightbulb, ChevronRight, Building2,
+  History, LogIn, UserPlus, Trash2,
 } from 'lucide-react';
 import type { Bot, Conversation } from '../types';
 import { db, type ProviderStatus, type OrgSummary } from '../services/db';
@@ -37,6 +38,41 @@ function timeAgo(ms: number): string {
   return `${d}d ago`;
 }
 
+interface ActivityItem {
+  id: string;
+  eventType: string;
+  data: { actorName?: string; actorId?: string; at?: string; [key: string]: unknown };
+  createdAt: number;
+}
+
+function activityLabel(e: ActivityItem): string {
+  const t = e.eventType;
+  const who = e.data?.actorName ? ` by ${e.data.actorName}` : '';
+  switch (t) {
+    case 'bot.factory_created': return `Manufactured ${Number(e.data?.count ?? 1).toLocaleString()} bots${who}`;
+    case 'bot.custom_created': return `Created custom bot "${e.data?.name ?? ''}"${who}`;
+    case 'auth.login': return `Signed in${who}`;
+    case 'auth.registered': return `Registered${who}`;
+    case 'org.created': return `Created workspace${who}`;
+    case 'org.updated': return `Updated workspace${who}`;
+    case 'org.member_invited': return `Invited a member${who}`;
+    case 'org.member_joined': return `A member joined${who}`;
+    case 'moderation.blocked': return `Blocked a flagged message${who}`;
+    case 'handoff.requested': return `Requested a human handoff${who}`;
+    case 'reminder.created': return `Created a reminder${who}`;
+    default: return t.replace(/\./g, ' ') + who;
+  }
+}
+
+function activityIcon(t: string) {
+  if (t.startsWith('bot.')) return <BotIcon style={{ width: 14, height: 14 }} />;
+  if (t === 'auth.login') return <LogIn style={{ width: 14, height: 14 }} />;
+  if (t === 'auth.registered') return <UserPlus style={{ width: 14, height: 14 }} />;
+  if (t.startsWith('org.')) return <Building2 style={{ width: 14, height: 14 }} />;
+  if (t === 'moderation.blocked') return <Trash2 style={{ width: 14, height: 14 }} />;
+  return <Sparkles style={{ width: 14, height: 14 }} />;
+}
+
 export default function DashboardView() {
   const navigate = useNavigate();
   const { currentOrg } = useAuth();
@@ -45,6 +81,7 @@ export default function DashboardView() {
   const [health, setHealth] = useState<ProviderStatus | null>(null);
   const [orgInfo, setOrgInfo] = useState<OrgSummary | null>(null);
   const [recentConvs, setRecentConvs] = useState<Array<{ conv: Conversation; bot: Bot }>>([]);
+  const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -71,6 +108,9 @@ export default function DashboardView() {
     db.getHealth().then(setHealth).catch(() => setHealth(null));
     if (currentOrg?.id) {
       db.getOrg(currentOrg.id).then(setOrgInfo).catch(() => setOrgInfo(null));
+      db.getOrgActivity(currentOrg.id)
+        .then(items => setActivity((items as unknown as ActivityItem[]).slice(0, 8)))
+        .catch(() => setActivity([]));
     }
     return () => { alive = false; };
   }, [currentOrg?.id]);
@@ -119,7 +159,7 @@ export default function DashboardView() {
         transition={{ duration: 0.35 }}
       >
         <div className="dash-hero-orbit" aria-hidden="true" />
-        <h1>{greeting} — welcome to the factory floor.</h1>
+        <h1>{greeting} — welcome to <span style={{ color: 'var(--accent)' }}>Scarlet</span>.</h1>
         <p>
           {stats.total > 0
             ? `You have ${stats.total.toLocaleString()} assistants on the line, spanning ${stats.domains} domains. Forge more, or jump straight into a conversation.`
@@ -236,15 +276,14 @@ export default function DashboardView() {
               <div className="dash-section-title"><span>Favorites</span></div>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {favorites.map((b) => (
-                  <Badge key={b.id} tone="accent">
-                    <button
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
-                      onClick={() => navigate(`/chat/${b.id}`)}
-                      title={b.name}
-                    >
-                      {b.name}
-                    </button>
-                  </Badge>
+                  <button
+                    key={b.id}
+                    className="dash-fav-chip"
+                    onClick={() => navigate(`/chat/${b.id}`)}
+                    title={b.name}
+                  >
+                    <span className="fav-name">{b.name}</span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -312,22 +351,49 @@ export default function DashboardView() {
         </section>
       </div>
 
-      {/* Coming soon strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.9rem' }}>
+      {/* Quick actions */}
+      <div className="dash-section-title">
+        <span>Quick actions</span>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.9rem', marginBottom: '1.8rem' }}>
         {[
-          { label: 'Analytics dashboard', icon: BarChart3, to: '/library' },
-          { label: 'Bot templates', icon: LayoutTemplate, to: '/library' },
-          { label: 'Custom bot creator', icon: Sparkles, to: '/factory' },
-        ].map(({ label, icon: Icon, to }) => (
+          { label: 'Create Custom Bot', desc: 'AI designs everything', icon: Sparkles, to: '/factory/custom' },
+          { label: 'Generate Random Bots', desc: 'Manufacture at scale', icon: Factory, to: '/factory/random' },
+          { label: 'Browse Templates', desc: 'Start from a preset', icon: LayoutTemplate, to: '/templates' },
+        ].map(({ label, desc, icon: Icon, to }) => (
           <button key={label} className="dash-bot-mini ui-card" onClick={() => navigate(to)}>
             <Icon style={{ width: 19, height: 19, color: 'var(--accent)' }} />
             <span className="meta">
-              <span className="name" style={{ color: 'var(--fg-dim)' }}>{label}</span>
-              <span className="sub">Coming in a later checkpoint</span>
+              <span className="name">{label}</span>
+              <span className="sub">{desc}</span>
             </span>
           </button>
         ))}
       </div>
+
+      {/* Activity timeline */}
+      {activity.length > 0 && (
+        <Card style={{ marginBottom: '1.8rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+            <History style={{ width: 16, height: 16, color: 'var(--accent)' }} />
+            <span className="dash-section-title" style={{ marginBottom: 0, flex: 1 }}>Recent activity</span>
+          </div>
+          <div style={{ display: 'grid', gap: '0.15rem' }}>
+            {activity.map(a => (
+              <div key={a.id} className="activity-item" style={{ padding: '0.55rem 0.2rem' }}>
+                <span style={{ color: 'var(--accent)', display: 'grid', placeItems: 'center', width: 22, height: 22, borderRadius: 6, background: 'var(--accent-subtle)', flex: 'none' }}>
+                  {activityIcon(a.eventType)}
+                </span>
+                <span style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
+                  <span style={{ fontSize: '0.86rem', color: 'var(--fg)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{activityLabel(a)}</span>
+                  <span className="mono" style={{ fontSize: '0.64rem', color: 'var(--fg-faint)' }}>{a.eventType}</span>
+                </span>
+                <span className="mono" style={{ fontSize: '0.68rem', color: 'var(--fg-faint)', whiteSpace: 'nowrap' }}>{timeAgo(a.createdAt)}</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
     </div>
   );
 }

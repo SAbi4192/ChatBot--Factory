@@ -55,6 +55,25 @@ const STOPWORDS = new Set([
   'series', 'app', 'apps', 'look', 'looking', 'looks'
 ]);
 
+// Common English words that legitimately appear inside MANY domains' own
+// questions ("what language should I learn" for programming, "century ride"
+// for cycling, "separation of powers" for politics, "monitor a service" for
+// devops, "memory leak" for programming). They must NOT count as OFF-TOPIC
+// evidence — but they MAY still count as in-field evidence when they appear in
+// the bot's own lexicon, so they are filtered only from the foreign set.
+const AMBIGUOUS_TERMS = new Set([
+  'language', 'languages', 'century', 'strategy', 'separation', 'monitor',
+  'memory', 'song', 'songs', 'student', 'students', 'brake', 'stress',
+  'design', 'color', 'colour', 'food', 'brand', 'style', 'water', 'business',
+  'test', 'tests', 'analysis', 'budget', 'kitchen', 'meal', 'makeup',
+  'persona', 'usability', 'service', 'web service', 'arrangement', 'development',
+  'develop', 'learn', 'learning', 'engage', 'engagement', 'classroom',
+  'law', 'independence', 'power', 'space', 'rate', 'order', 'form', 'field',
+  'level', 'point', 'line', 'set', 'key', 'view', 'rights', 'ratio', 'phase',
+  'model', 'result', 'function', 'functions', 'variable', 'variables',
+  'class', 'switch', 'branch', 'loop', 'expression', 'code', 'system', 'systems'
+]);
+
 // Typos and chat shorthand, so "lastest versoin" and "what can u do" behave
 // exactly like the correctly spelled question.
 const NORMALISE = [
@@ -67,6 +86,55 @@ const NORMALISE = [
   [/\brecomend\w*\b/g, 'recommend'], [/\bdifferance\b/g, 'difference'],
   [/\bdiffrence\b/g, 'difference'], [/\bbetween\b/g, 'between'], [/\bwich\b/g, 'which']
 ];
+
+// Words that can be capitalised inside an ordinary sentence (pronouns, openers,
+// common nouns) — never treated as "proper noun" off-topic evidence.
+const CAPITALISED_STOP = new Set([
+  'the', 'a', 'an', 'i', 'it', 'this', 'that', 'these', 'those', 'my', 'your',
+  'you', 'our', 'their', 'his', 'her', 'its', 'we', 'they', 'he', 'she', 'me',
+  'him', 'us', 'them', 'who', 'what', 'which', 'why', 'how', 'when', 'where',
+  'is', 'are', 'was', 'were', 'do', 'does', 'did', 'can', 'could', 'should',
+  'would', 'will', 'shall', 'may', 'might', 'please', 'hi', 'hey', 'hello',
+  'ok', 'okay', 'thanks', 'thank', 'tell', 'name', 'any', 'one', 'two', 'three',
+  'five', 'list', 'source', 'information', 'chatbot', 'assistant', 'also',
+  'want', 'like', 'know', 'ask', 'give', 'show', 'explain', 'describe', 'best',
+  'top', 'new', 'old', 'first', 'last', 'next', 'every', 'all', 'some', 'many',
+  'more', 'most', 'other', 'another', 'such', 'own', 'same', 'just', 'only'
+]);
+
+/**
+ * Capitalised words that look like proper nouns (people / places / entities)
+ * with no connection to the bot's own vocabulary. Vocabulary matching can't
+ * see people's names — "Who is Donald Trump?" on a dental bot has zero keyword
+ * overlap with anything, so this is the only way to catch it deterministically.
+ */
+function properNounHits(rawText, ownVocab) {
+  const words = String(rawText || '').split(/\s+/).filter(Boolean);
+  const out = [];
+  let atSentenceStart = true;
+  for (const w of words) {
+    const clean = w.replace(/[^A-Za-z'-]/g, '');
+    const endsSentence = /[.!?]$/.test(w);
+
+    if (clean.length >= 3 && /^[A-Z]/.test(clean)) {
+      const lower = clean.toLowerCase();
+      const isName =
+        !atSentenceStart &&
+        !CAPITALISED_STOP.has(lower) &&
+        !STOPWORDS.has(lower) &&
+        !AMBIGUOUS_TERMS.has(lower) &&
+        !ownVocab.some((t) => {
+          const tl = String(t).toLowerCase();
+          if (tl === lower) return true;
+          if (tl.length > 3 && (tl.includes(lower) || lower.includes(tl))) return true;
+          return false;
+        });
+      if (isName) out.push(clean);
+    }
+    atSentenceStart = endsSentence;
+  }
+  return out;
+}
 
 export function normaliseQuery(message) {
   let t = String(message || '').toLowerCase();
@@ -90,8 +158,8 @@ const META_PHRASES = [
   'introduce yourself', 'tell me about yourself', 'what are you good at',
   'what do you specialize', 'what do you specialise', 'your specialty',
   'your speciality', 'your expertise', 'what topics', 'which topics',
-  'how can you help', 'how do you help', 'can you help me', 'what help',
-  'your capabilities', 'what are your features', 'how do you work',
+  'how can you help', 'how do you help', 'your capabilities',
+  'what are your features', 'how do you work',
   'are you an ai', 'are you a bot', 'are you human', 'what is this'
 ];
 
@@ -119,6 +187,19 @@ function parseProfile(bot) {
   return typeof bot.domainProfile === 'string'
     ? JSON.parse(bot.domainProfile || 'null')
     : bot.domainProfile;
+}
+
+/** Flatten semanticRelationships ("Moon -> orbits -> Earth") into searchable terms. */
+function semanticTerms(profile) {
+  const out = [];
+  for (const rel of profile?.semanticRelationships || []) {
+    if (typeof rel !== 'string') continue;
+    for (const part of rel.split(/->|→/)) {
+      const t = String(part).trim().toLowerCase();
+      if (t && t.length > 2) out.push(t);
+    }
+  }
+  return out;
 }
 
 function matches(text, topic) {
@@ -246,11 +327,13 @@ export async function checkDomainRelevance(bot, userMessage, history = []) {
   // Own-field vocabulary = what was stored on the bot PLUS the shared lexicon
   // looked up by domain/specialty name. The lexicon is what lets bots that were
   // generated before the vocabulary existed still recognise "Intel" or "Ryzen".
+  const semantics = semanticTerms(profile);
   const own = [
     ...(profile.allowedTopics || []),
     ...(profile.relatedTopics || []),
     ...(profile.commonIntents || []),
     ...(profile.synonyms || []),
+    ...semantics,
     ...lexiconFor(domain, specialty)
   ];
   const foreign = [
@@ -259,7 +342,11 @@ export async function checkDomainRelevance(bot, userMessage, history = []) {
   ];
 
   const ownHits     = hits(text, own);
-  const foreignHits = hits(text, foreign);
+  const relatedHits = hits(text, profile.relatedTopics || []);
+  const semHits     = hits(text, semantics);
+  // Ambiguous common words never prove a question is OFF-topic; they only ever
+  // serve as in-field evidence via the `own` set above.
+  const foreignHits = hits(text, foreign).filter(t => !AMBIGUOUS_TERMS.has(String(t)));
   const isTemporal  = TEMPORAL.some(sig => matches(text, sig));
   const wordCount   = text.split(' ').filter(Boolean).length;
   const looksFollowUp = FOLLOWUP_HINTS.some(h => matches(text, h)) || wordCount <= 4;
@@ -274,16 +361,43 @@ export async function checkDomainRelevance(bot, userMessage, history = []) {
     };
   }
 
+  // ---- Layer 1b: semantic relevance — related terms / relationship facts ----
+  // "Kitchen tools for a cooking bot" or "the Moon vs Earth" for astronomy are
+  // clearly within the field even though they use different exact vocabulary.
+  if (relatedHits.length || semHits.length) {
+    return {
+      relevant: true, confidence: 0.85, layer: 1, result: 'SEMANTIC',
+      reason: `Semantically related to the field: ${[...relatedHits, ...semHits].join(', ')}`, ownHits, foreignHits
+    };
+  }
+
   // ---- Layer 2: positive evidence it belongs to another field ----
   if (foreignHits.length) {
-    // If we have a semantic classifier, let it decide rather than hard-rejecting based on one word.
-    // We only hard-reject here if there is NO classifier available to verify.
-    if (!hasGroq()) {
+    // If we have a semantic classifier, let it decide rather than hard-rejecting
+    // based on one word. We only hard-reject here if there is NO classifier
+    // available to verify — and even then we stay lenient when the question is
+    // about tools/context adjacent to the domain ("what kitchen knife do I
+    // need?" from a cooking bot).
+    if (!hasGroq() && !ownHits.length && !relatedHits.length) {
       return {
-        relevant: false, confidence: 0.9, layer: 2, result: 'OUT_OF_DOMAIN',
+        relevant: false, confidence: 0.88, layer: 2, result: 'OUT_OF_DOMAIN',
         reason: `Belongs to another field: ${foreignHits.join(', ')}`, ownHits, foreignHits
       };
     }
+  }
+
+  // ---- Layer 2b: "Who is <Person>?" with no in-field connection ----
+  // Vocabulary matching can't see people's names: "Who is Donald Trump?" on a
+  // dental bot has ZERO keyword overlap with anything. When the user asks about
+  // a person/entity and the capitalised name has no link to this field, redirect
+  // firmly instead of letting the LLM improvise a vague answer.
+  const personQuery = /who(?:'s| is| was| are| were)?\b|tell me about|do you know|have you heard of/.test(text);
+  const names = personQuery ? properNounHits(userMessage, own) : [];
+  if (names.length && !ownHits.length && !relatedHits.length && !semHits.length) {
+    return {
+      relevant: false, confidence: 0.8, layer: 2, result: 'OUT_OF_DOMAIN',
+      reason: `Asking about an unrelated person/entity: ${names.join(', ')}`, ownHits, foreignHits
+    };
   }
 
   // ---- Layer 3: context-aware follow-up ("and the newest one?") ----
@@ -344,34 +458,53 @@ function exampleTopics(bot, limit = 5) {
   return picked;
 }
 
-export function generateRedirectMessage(bot) {
+export function generateRedirectMessage(bot, userMessage = '') {
   const topics = exampleTopics(bot, 5);
   const list = topics.length ? topics.join(', ') : bot.subdomain;
-  return `That one is outside my area — I'm a **${bot.domain} · ${bot.subdomain}** specialist, so I'd only be guessing.
+  const topic = String(userMessage || '').trim().slice(0, 80);
+  const lead = topic ? `\n\n"${topic}" is outside my specialty` : `\n\nThat question is outside my specialty`;
+  return `I'm a **${bot.domain} · ${bot.subdomain}** assistant, so I only answer ${bot.domain}-related questions.${lead} — I'd rather be honest than guess.
 
-What I do know well: ${list}. Ask me anything along those lines and I'll go deep.`;
+Please ask me only ${bot.domain} questions, like ${list}. I'll go as deep as you want!`;
 }
 
 /**
- * Reply for greetings and "what can you do?" — answered from the bot's own
- * profile so it is instant, always available, and always in character.
+ * Reply for greetings and "what can you do?" — the offline fallback used when
+ * no AI provider can produce an in-character reply. Openers and topics rotate
+ * so even the deterministic version never feels copy-pasted.
  */
 export function generateIntroMessage(bot, kind = 'meta') {
-  const topics = exampleTopics(bot, 6);
+  const topics = exampleTopics(bot, 8);
   const starters = (typeof bot.starterQuestions === 'string'
     ? JSON.parse(bot.starterQuestions || '[]')
     : bot.starterQuestions) || [];
 
-  const opener = kind === 'greeting'
-    ? `Hello — ${bot.name} here.`
-    : `I'm ${bot.name}, a **${bot.domain} · ${bot.subdomain}** specialist.`;
+  const openers = kind === 'greeting'
+    ? [
+        () => `Hello — ${bot.name} here.`,
+        () => `Hey! ${bot.name} at your service.`,
+        () => `Hi! ${bot.name} speaking — nice to meet you.`,
+        () => `Hey there — ${bot.name} ready when you are.`,
+      ]
+    : [
+        () => `I'm ${bot.name}, a **${bot.domain} · ${bot.subdomain}** specialist.`,
+        () => `I'm ${bot.name} — I specialise in **${bot.subdomain}**.`,
+        () => `Meet ${bot.name}: your ${bot.domain} · ${bot.subdomain} assistant.`,
+        () => `I'm ${bot.name}, built for **${bot.domain}** questions — ${bot.subdomain} in particular.`,
+      ];
+  const opener = openers[Math.floor(Math.random() * openers.length)]();
+
+  // Rotate a different subset of topics each time.
+  const shuffled = [...topics].sort(() => Math.random() - 0.5).slice(0, 4);
+  const pick = shuffled.length ? shuffled.join(', ') : bot.subdomain;
 
   let msg = `${opener} I focus on **${bot.subdomain}**`;
-  msg += topics.length ? `, covering things like ${topics.slice(0, 4).join(', ')}.` : '.';
+  msg += shuffled.length ? `, covering things like ${pick}.` : '.';
 
   if (starters.length) {
+    const pickStarters = [...starters].sort(() => Math.random() - 0.5).slice(0, 3);
     msg += `\n\nA few things you could ask me:\n`;
-    msg += starters.slice(0, 3).map(q => `- ${q}`).join('\n');
+    msg += pickStarters.map(q => `- ${q}`).join('\n');
   }
   msg += `\n\nWhat would you like to know?`;
   return msg;

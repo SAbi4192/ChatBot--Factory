@@ -479,6 +479,69 @@
   color: var(--fg-faint);
 }
 
+/* ---- Theme toggle button ---- */
+.app-theme-toggle {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-default);
+  background: var(--bg-tertiary);
+  color: var(--fg-dim);
+  transition: all 0.2s var(--ease);
+}
+.app-theme-toggle:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-subtle);
+  box-shadow: var(--accent-glow);
+}
+.app-theme-toggle svg { width: 16px; height: 16px; }
+
+/* ---- New Bot dropdown ---- */
+.app-newbot-wrap { position: relative; }
+.app-newbot-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 70;
+  min-width: 240px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-xl);
+  padding: 0.4rem;
+  overflow: hidden;
+}
+.app-newbot-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.7rem 0.8rem;
+  border-radius: var(--radius-sm);
+  text-align: left;
+  transition: background 0.13s, transform 0.13s;
+}
+.app-newbot-item:hover { background: var(--bg-tertiary); }
+.app-newbot-item:active { transform: scale(0.98); }
+.app-newbot-item-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--accent-subtle);
+  border: 1px solid var(--signal-line);
+  color: var(--accent);
+  flex: none;
+}
+.app-newbot-item-icon svg { width: 17px; height: 17px; }
+.app-newbot-item-meta { min-width: 0; }
+.app-newbot-item-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--fg); }
+.app-newbot-item-desc { display: block; font-size: 0.72rem; color: var(--fg-faint); margin-top: 0.1rem; }
+
 .app-content {
   flex: 1;
   padding: 2rem 1.5rem 3.5rem;
@@ -757,7 +820,16 @@
   border-radius: var(--radius-sm);
   background: var(--accent-subtle);
 }
-.invite-code code { font-family: var(--font-mono); font-size: 1.1rem; letter-spacing: 0.14em; color: var(--accent); flex: 1; }
+.invite-code code {
+  font-family: var(--font-mono);
+  font-size: 1.1rem;
+  letter-spacing: 0.14em;
+  color: var(--accent);
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+}
 
 .activity-list { display: flex; flex-direction: column; }
 .activity-item {
@@ -770,8 +842,15 @@
 }
 .activity-item:last-child { border-bottom: none; }
 .activity-item .a-type { font-family: var(--font-mono); font-size: 0.7rem; color: var(--accent); min-width: 130px; }
-.activity-item .a-who { color: var(--fg-dim); flex: 1; }
-.activity-item .a-when { font-family: var(--font-mono); font-size: 0.68rem; color: var(--fg-faint); white-space: nowrap; }
+.activity-item .a-who {
+  color: var(--fg-dim);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.activity-item .a-when { font-family: var(--font-mono); font-size: 0.68rem; color: var(--fg-faint); white-space: nowrap; flex: none; }
 
 @media (max-width: 768px) {
   .app-sidebar { display: none; }
@@ -975,15 +1054,66 @@
   border: 1px solid transparent;
   cursor: pointer;
   width: 100%;
+  min-width: 0;
   text-align: left;
   transition: background 0.15s, border-color 0.15s, transform 0.15s var(--ease), box-shadow 0.15s;
 }
 .dash-bot-mini:hover { background: var(--bg-tertiary); border-color: var(--border-default); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
-.dash-bot-mini .meta { min-width: 0; flex: 1; }
-.dash-bot-mini .name { font-weight: 600; font-size: 0.88rem; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dash-bot-mini .sub { font-family: var(--font-mono); font-size: 0.66rem; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 0.05em; }
-.dash-bot-mini .chats { font-family: var(--font-mono); font-size: 0.68rem; color: var(--fg-faint); display: flex; align-items: center; gap: 0.3rem; }
+.dash-bot-mini .meta { min-width: 0; flex: 1 1 auto; overflow: hidden; }
+.dash-bot-mini .name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-bot-mini .sub {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--fg-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dash-bot-mini .chats {
+  flex: none;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--fg-faint);
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
 .dash-bot-mini .chats svg { width: 12px; height: 12px; }
+
+/* Favorites chips */
+.dash-fav-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 180px;
+  padding: 0.28rem 0.7rem;
+  border: 1px solid var(--signal-line);
+  border-radius: 999px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 500;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s var(--ease);
+}
+.dash-fav-chip:hover { background: var(--signal-soft); transform: translateY(-1px); }
+.dash-fav-chip .fav-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dash-fav-chip svg { width: 12px; height: 12px; flex: none; }
 
 .dash-provider-strip {
   display: flex;
@@ -1022,8 +1152,8 @@
   transition: background 0.15s;
 }
 .dash-conv-item:hover { background: var(--bg-tertiary); }
-.dash-conv-item .title { font-size: 0.86rem; font-weight: 500; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dash-conv-item .sub { font-family: var(--font-mono); font-size: 0.66rem; color: var(--fg-faint); }
+.dash-conv-item .title { display: block; font-size: 0.86rem; font-weight: 500; color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-conv-item .sub { display: block; font-family: var(--font-mono); font-size: 0.66rem; color: var(--fg-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 0.1rem; }
 .dash-conv-item svg { width: 15px; height: 15px; color: var(--fg-faint); }
 
 .dash-tip { display: flex; gap: 0.8rem; align-items: flex-start; }
@@ -1042,5 +1172,6 @@
 .share-title { font-size: 0.7rem; letter-spacing: 0.14em; }
 .share-message .share-role { letter-spacing: 0.1em; }
 .share-content p { margin: 0; }
+.share-content { overflow-wrap: anywhere; word-break: break-word; }
 .share-content pre { overflow-x: auto; }
 @media (max-width: 560px) { .share-header .btn-text { display: none; } }

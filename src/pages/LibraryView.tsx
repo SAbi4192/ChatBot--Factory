@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import { SkeletonCard } from '../components/ui/Skeleton';
 import { displayBotName } from '../utils/botName';
+import { wasBotSeen, markBotSeen } from '../utils/seenBots';
 import './LibraryView.css';
 
 type Filter = 'all' | 'recent' | 'favorites';
@@ -113,7 +114,9 @@ export default function LibraryView() {
     el.style.setProperty('--ry', `${(px * 8).toFixed(2)}deg`);
   };
 
-  const isNew = (bot: Bot) => Date.now() - bot.createdAt < 24 * 60 * 60 * 1000;
+  const isNew = (bot: Bot) => Date.now() - bot.createdAt < 24 * 60 * 60 * 1000 && !wasBotSeen(bot.id);
+
+  const openBot = (id: string) => { markBotSeen(id); navigate(`/chat/${id}`); };
 
   return (
     <div className="lib">
@@ -203,7 +206,13 @@ export default function LibraryView() {
                   <article
                     key={bot.id}
                     className={`bot-card ${isNew(bot) ? 'is-new' : ''} ${(bot.conversationCount ?? 0) > 0 ? 'is-active' : ''}`}
-                    onClick={() => navigate(`/chat/${bot.id}`)}
+                    onClick={() => openBot(bot.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openBot(bot.id); }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open chat with ${bot.name}`}
                     onMouseMove={tilt}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.setProperty('--rx', '0deg');
@@ -213,7 +222,11 @@ export default function LibraryView() {
                     <div className="bot-card-top">
                       <span
                         className="bot-mono"
-                        style={{ background: d.primaryColor, color: textOn(d.primaryColor) }}
+                        style={{
+                          background: d.primaryColor || 'var(--bg-quaternary)',
+                          color: d.primaryColor ? textOn(d.primaryColor) : 'var(--fg-dim)',
+                          borderRadius: d.avatarShape === 'round' ? '50%' : d.avatarShape === 'squircle' ? '30%' : d.avatarShape === 'square' ? '8px' : '11px',
+                        }}
                       >
                         {initials(bot.name)}
                       </span>
@@ -236,8 +249,18 @@ export default function LibraryView() {
                     )}
                     <p className="bot-desc">{bot.description}</p>
 
+                    {/* hover preview */}
+                    <div className="bot-preview">
+                      <div className="bot-preview-inner">
+                        <span className="bot-preview-label mono">Personality</span>
+                        <span className="bot-preview-text">{bot.personality}</span>
+                        <span className="bot-preview-label mono" style={{ marginTop: '0.5rem' }}>Welcome</span>
+                        <span className="bot-preview-text">{bot.welcomeMessage || `Ask me about ${bot.subdomain}.`}</span>
+                      </div>
+                    </div>
+
                     <div className="bot-card-foot">
-                      <div className="bot-dna" title={`${d.theme} · ${d.layout} · ${d.messageStyle}`}>
+                      <div className="bot-dna" title={`${d.theme} · ${d.layout} · ${d.messageStyle} · ${d.backgroundStyle} · ${d.avatarShape ?? 'round'}`}>
                         <i style={{ background: d.primaryColor }} />
                         <i style={{ background: d.accentColor }} />
                         <i style={{ background: d.surface || d.bg }} />
@@ -250,7 +273,7 @@ export default function LibraryView() {
 
                     {/* quick-action overlay */}
                     <div className="bot-actions" onClick={(e) => e.stopPropagation()}>
-                      <button title="Chat" onClick={() => navigate(`/chat/${bot.id}`)} aria-label={`Chat with ${bot.name}`}>
+                      <button title="Chat" onClick={() => openBot(bot.id)} aria-label={`Chat with ${bot.name}`}>
                         <MessageSquare />
                       </button>
                       <button title="Edit" onClick={() => navigate(`/bot/${bot.id}/edit`)} aria-label={`Edit ${bot.name}`}>

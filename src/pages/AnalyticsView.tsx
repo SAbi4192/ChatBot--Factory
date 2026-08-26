@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend,
-  Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Line, LineChart, Pie, PieChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { Bot as BotIcon, ThumbsUp, Download, Activity } from 'lucide-react';
 import { db, type AnalyticsOverview } from '../services/db';
@@ -56,8 +56,6 @@ export default function AnalyticsView() {
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const hourLabels = useMemo(() => Array.from({ length: 24 }, (_, h) => `${h}:00`), []);
 
   if (loading) {
     return (
@@ -118,7 +116,7 @@ export default function AnalyticsView() {
       </Card>
 
       {/* Conversations over time */}
-      <Card id="chart-convs" style={{ marginBottom: '1.4rem' }}>
+      <Card id="chart-convs" className="chart-card" style={{ marginBottom: '1.4rem' }}>
         <div className="dash-section-title">
           <span>Conversations over time (30d)</span>
           <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -134,9 +132,9 @@ export default function AnalyticsView() {
                 <stop offset="100%" stopColor="#F5B13D" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-            <XAxis dataKey="day" stroke="var(--fg-faint)" fontSize={10} tickFormatter={(d) => d.slice(5)} />
-            <YAxis stroke="var(--fg-faint)" fontSize={10} allowDecimals={false} />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-gridline)" />
+            <XAxis dataKey="day" fontSize={10} tickFormatter={(d) => d.slice(5)} />
+            <YAxis fontSize={10} allowDecimals={false} />
             <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-hover)', borderRadius: 8 }} />
             <Area type="monotone" dataKey="count" stroke="#F5B13D" fill="url(#convGrad)" strokeWidth={2} />
           </AreaChart>
@@ -145,7 +143,7 @@ export default function AnalyticsView() {
 
       <div className="dash-grid-2">
         {/* Provider donut */}
-        <Card id="chart-provider">
+        <Card id="chart-provider" className="chart-card">
           <div className="dash-section-title">
             <span>Messages by provider</span>
             <Button variant="ghost" size="sm" onClick={() => exportChart('chart-provider', 'providers')}><Download /> SVG</Button>
@@ -162,16 +160,16 @@ export default function AnalyticsView() {
         </Card>
 
         {/* Top bots */}
-        <Card id="chart-topbots">
+        <Card id="chart-topbots" className="chart-card">
           <div className="dash-section-title">
             <span>Top bots by usage</span>
             <Button variant="ghost" size="sm" onClick={() => exportCSV(charts.topBots, 'top-bots')}><Download /> CSV</Button>
           </div>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={charts.topBots} layout="vertical" margin={{ left: 10 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" horizontal={false} />
-              <XAxis type="number" stroke="var(--fg-faint)" fontSize={10} allowDecimals={false} />
-              <YAxis type="category" dataKey="name" stroke="var(--fg-faint)" fontSize={10} width={110} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-gridline)" horizontal={false} />
+              <XAxis type="number" fontSize={10} allowDecimals={false} />
+              <YAxis type="category" dataKey="name" fontSize={10} width={110} />
               <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-hover)', borderRadius: 8 }} />
               <Bar dataKey="value" fill="#38BDF8" radius={[0, 4, 4, 0]} />
             </BarChart>
@@ -181,13 +179,13 @@ export default function AnalyticsView() {
 
       <div className="dash-grid-2">
         {/* CSAT trend */}
-        <Card id="chart-csat">
+        <Card id="chart-csat" className="chart-card">
           <div className="dash-section-title"><span>CSAT trend (7d)</span></div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={series.csat}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="day" stroke="var(--fg-faint)" fontSize={10} />
-              <YAxis domain={[0, 100]} stroke="var(--fg-faint)" fontSize={10} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-gridline)" />
+              <XAxis dataKey="day" fontSize={10} />
+              <YAxis domain={[0, 100]} fontSize={10} />
               <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-hover)', borderRadius: 8 }} />
               <Line type="monotone" dataKey="csat" stroke="#34D399" strokeWidth={2} connectNulls dot={{ r: 3 }} />
             </LineChart>
@@ -195,23 +193,53 @@ export default function AnalyticsView() {
         </Card>
 
         {/* Response-time histogram */}
-        <Card id="chart-resp">
+        <Card id="chart-resp" className="chart-card">
           <div className="dash-section-title"><span>Response time histogram</span></div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={charts.respHist}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="label" stroke="var(--fg-faint)" fontSize={10} />
-              <YAxis stroke="var(--fg-faint)" fontSize={10} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-gridline)" vertical={false} />
+              <XAxis dataKey="label" fontSize={10} />
+              <YAxis fontSize={10} allowDecimals={false} />
               <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-hover)', borderRadius: 8 }} />
               <Bar dataKey="value" fill="#A78BFA" radius={[4, 4, 0, 0]} />
             </BarChart>
+          </ResponsiveContainer>
+        </Card>
+
+        {/* Sentiment trend */}
+        <Card id="chart-sentiment" className="chart-card" style={{ marginBottom: '1.4rem' }}>
+          <div className="dash-section-title">
+            <span>Conversation sentiment (7 days)</span>
+            <Button variant="ghost" size="sm" onClick={() => exportCSV(charts.sentiment ?? [], 'sentiment')}><Download /> CSV</Button>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={charts.sentiment ?? []}>
+              <defs>
+                <linearGradient id="sentGrad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#34D399" stopOpacity={0.5} />
+                  <stop offset="100%" stopColor="#34D399" stopOpacity={0.02} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-gridline)" vertical={false} />
+              <XAxis dataKey="day" fontSize={10} />
+              <YAxis fontSize={10} domain={[-1, 1]} ticks={[-1, -0.5, 0, 0.5, 1]} />
+              <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-hover)', borderRadius: 8 }}
+                formatter={(v) => {
+                  const n = Number(v ?? 0);
+                  if (Number.isNaN(n)) return 'no data';
+                  return n > 0 ? `+${n.toFixed(2)} positive` : `${n.toFixed(2)} negative`;
+                }} />
+              <ReferenceLine y={0} stroke="var(--fg-faint)" strokeDasharray="4 4" />
+              <Area type="monotone" dataKey="sentiment" stroke="#34D399" strokeWidth={2} fill="url(#sentGrad)"
+                connectNulls dot={{ r: 3, fill: '#34D399', strokeWidth: 0 }} />
+            </AreaChart>
           </ResponsiveContainer>
         </Card>
       </div>
 
       <div className="dash-grid-2">
         {/* Domain distribution */}
-        <Card id="chart-domain">
+        <Card id="chart-domain" className="chart-card">
           <div className="dash-section-title">
             <span>Domain distribution</span>
             <Button variant="ghost" size="sm" onClick={() => exportCSV(charts.domainDist, 'domains')}><Download /> CSV</Button>
@@ -227,13 +255,13 @@ export default function AnalyticsView() {
         </Card>
 
         {/* Conversation length */}
-        <Card id="chart-convlen">
+        <Card id="chart-convlen" className="chart-card">
           <div className="dash-section-title"><span>Conversation length</span></div>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={charts.convLenHist}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-              <XAxis dataKey="label" stroke="var(--fg-faint)" fontSize={10} />
-              <YAxis stroke="var(--fg-faint)" fontSize={10} allowDecimals={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-gridline)" vertical={false} />
+              <XAxis dataKey="label" fontSize={10} />
+              <YAxis fontSize={10} allowDecimals={false} />
               <Tooltip contentStyle={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-hover)', borderRadius: 8 }} />
               <Bar dataKey="value" fill="#FB923C" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -242,30 +270,34 @@ export default function AnalyticsView() {
       </div>
 
       {/* Peak-usage heatmap */}
-      <Card id="chart-heatmap" style={{ marginBottom: '1.4rem' }}>
+      <Card id="chart-heatmap" className="chart-card" style={{ marginBottom: '1.4rem' }}>
         <div className="dash-section-title"><span>Peak usage (hour × weekday)</span></div>
-        <div style={{ display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 3 }}>
-          {hourLabels.map((h, i) => (
-            <div key={h} style={{ gridColumn: 1, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 9, color: 'var(--fg-faint)', paddingRight: 6 }}>
-              {i % 4 === 0 ? h : ''}
-            </div>
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: '40px repeat(7, 1fr)', gap: 3, alignItems: 'center' }}>
+          <div />
           {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-            <div key={d} style={{ textAlign: 'center', fontSize: 10, color: 'var(--fg-faint)', paddingBottom: 4 }}>{d}</div>
+            <div key={d} style={{ textAlign: 'center', fontSize: 10, color: 'var(--fg-dim)', paddingBottom: 4 }}>{d}</div>
           ))}
-          {charts.heatmap.flatMap((row) =>
-            ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => {
-              const v = row[d as keyof typeof row] as number;
-              const max = Math.max(1, ...charts.heatmap.map((r) => Math.max(1, r.Mon, r.Tue, r.Wed, r.Thu, r.Fri, r.Sat, r.Sun)));
-              const alpha = Math.min(1, v / max);
-              return (
-                <div key={`${row.hour}-${d}`} title={`${row.hour}:00 ${d} — ${v}`} style={{
-                  height: 16, borderRadius: 3,
-                  background: v > 0 ? `rgba(245,177,61,${0.15 + alpha * 0.85})` : 'var(--bg-tertiary)',
-                }} />
-              );
-            })
-          )}
+          {charts.heatmap.map((row) => {
+            const hour = row.hour as number;
+            const max = Math.max(1, ...charts.heatmap.map((r) => Math.max(1, r.Mon, r.Tue, r.Wed, r.Thu, r.Fri, r.Sat, r.Sun)));
+            return (
+              <Fragment key={hour}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 9, color: 'var(--fg-dim)', paddingRight: 6, height: 16 }}>
+                  {hour % 4 === 0 ? `${hour}:00` : ''}
+                </div>
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => {
+                  const v = row[d as keyof typeof row] as number;
+                  const alpha = Math.min(1, v / max);
+                  return (
+                    <div key={`${hour}-${d}`} title={`${hour}:00 ${d} — ${v}`} style={{
+                      height: 16, borderRadius: 3,
+                      background: v > 0 ? `rgba(245,177,61,${0.15 + alpha * 0.85})` : 'var(--bg-tertiary)',
+                    }} />
+                  );
+                })}
+              </Fragment>
+            );
+          })}
         </div>
       </Card>
 

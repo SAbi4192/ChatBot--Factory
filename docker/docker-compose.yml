@@ -1,41 +1,49 @@
+# ============================================================
+# Scarlet Chatbot Factory — Docker Compose
+# ------------------------------------------------------------
+# One command:   docker compose -f docker/docker-compose.yml up
+# Then open:     http://localhost:5173
+#
+# With the local model (needs models/llm-model.gguf):
+#   docker compose -f docker/docker-compose.yml --profile llm up
+#
+# The backend reads docker/.env  (copy .env.example -> .env first).
+# ============================================================
 services:
-  app:
+  backend:
     build:
       context: ..
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/Dockerfile.backend
     ports:
       - "3001:3001"
+    env_file:
+      - ../.env
     environment:
-      DATABASE_URL: "file:../data/chatbot_factory.db"
-      JWT_SECRET: ${JWT_SECRET:-docker-dev-secret-change-me}
-      AI_PROVIDER: auto
-      GROQ_API_KEY: ${GROQ_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      CORS_ORIGINS: ""
+      - DATABASE_URL=file:../data/chatbot_factory.db
+      - LOCAL_LLM_URL=http://llm:8000/api/chat
     volumes:
-      - app-data:/app/data
-    depends_on:
-      llm:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
-      interval: 15s
-      timeout: 3s
-      retries: 5
+      - ../data:/app/data
+    restart: unless-stopped
 
-  # Local GGUF model server (llama-cpp-python)
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Optional local GGUF model server (llama.cpp via python).
+  # Enable with the `llm` profile; mount the model file under ./models.
   llm:
-    image: ghcr.io/ggml-org/llama.cpp:server-cuda
-    command: ["-m", "/models/llm-model.gguf", "--host", "0.0.0.0", "--port", "8000", "-c", "4096"]
-    volumes:
-      - ../models:/models:ro
+    profiles: ["llm"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.llm
     ports:
       - "8000:8000"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8000/health"]
-      interval: 20s
-      timeout: 5s
-      retries: 5
-
-volumes:
-  app-data:
+    volumes:
+      - ../models:/app/models
+    restart: unless-stopped

@@ -25,7 +25,7 @@ const SAMPLE = 400;
 // One representative bot per (domain, specialty) pair the generator can produce.
 const bots = new Map();
 for (let i = 0; i < 12000 && bots.size < 60; i++) {
-  const b = generateSingleBot();
+  const b = await generateSingleBot();
   const key = `${b.domain}|${b.subdomain}`;
   if (!bots.has(key)) bots.set(key, b);
 }

@@ -6,7 +6,8 @@ import { Router } from 'express';
 import * as chatService from '../services/chat.service.js';
 import { validate, schemas } from '../middleware/validate.js';
 import { aiLimiter } from '../middleware/rateLimits.js';
-import { streamChatResponse, visionAnalyze, compareModels } from '../llmService.js';
+import { streamChatResponse, visionAnalyze, compareModels, translateText } from '../llmService.js';
+import { ApiError, errorHandler } from '../middleware/errorHandler.js';
 import db from '../db.js';
 import { uid } from '../services/bot.service.js';
 import { prisma } from '../prisma.js';
@@ -88,6 +89,19 @@ router.post('/compare', aiLimiter, validate(schemas.chat), async (req, res, next
     const results = await compareModels(bot, message);
     res.json({ results });
   } catch (e) { next(e); }
+});
+
+// Translate a message snippet (per-message translate action in the chat).
+// Provider-availability problems are client config issues (missing/broken API
+// keys), so they surface as 422 with the real reason instead of a generic 500.
+router.post('/translate', aiLimiter, validate(schemas.translate), async (req, res, next) => {
+  try {
+    const { text, lang } = req.body;
+    const translation = await translateText(text, lang);
+    res.json({ translation });
+  } catch (e) {
+    next(new ApiError(422, e.message));
+  }
 });
 
 export default router;

@@ -5,6 +5,7 @@ import { db } from '../services/db';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
 import type { Bot } from '../types';
+import './LibraryView.css';
 
 type SearchResults = {
   conversations: Array<{ id: string; title: string | null; bot: Bot; updatedAt: number }>;

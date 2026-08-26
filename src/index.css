@@ -10,6 +10,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Archivo:wght@700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
 :root {
+  /* chart gridline — theme-aware */
+  --chart-gridline: rgba(255, 255, 255, 0.06);
   color-scheme: dark;
 
   /* Surfaces — deep void black with subtle layering */
@@ -78,6 +80,147 @@
 
   /* Motion */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* ============================================================
+   LIGHT THEME — "Scarlet Ivory"
+   Warm ivory/cream tones · premium paper feel · amber accent
+   ============================================================ */
+[data-theme="light"] {
+  color-scheme: light;
+  --chart-gridline: rgba(120, 90, 40, 0.08);
+
+  /* Surfaces — warm ivory with subtle layering */
+  --bg-primary:     #FAF7F2;
+  --bg-secondary:   #FFFFFF;
+  --bg-tertiary:    #F5F0E8;
+  --bg-quaternary:  #EDE7DC;
+
+  /* Borders — warm tones */
+  --border-subtle:  rgba(120, 90, 40, 0.06);
+  --border-default: rgba(120, 90, 40, 0.10);
+  --border-hover:   rgba(120, 90, 40, 0.18);
+
+  /* Glass — warm blurred surface */
+  --glass:          rgba(255, 255, 255, 0.82);
+  --glass-border:   rgba(120, 90, 40, 0.10);
+
+  /* Accent palette — deeper amber for contrast on light */
+  --accent:         #C87F0A;
+  --accent-hover:   #A96B00;
+  --accent-glow:    0 0 20px rgba(200, 127, 10, 0.2);
+  --accent-subtle:  rgba(200, 127, 10, 0.08);
+
+  /* Status colors — slightly deeper for light bg */
+  --success:  #059669;
+  --warning:  #D97706;
+  --error:    #DC2626;
+  --info:     #2563EB;
+
+  /* Legacy aliases */
+  --ink:      var(--bg-primary);
+  --ink-2:    var(--bg-secondary);
+  --panel:    var(--bg-secondary);
+  --panel-2:  var(--bg-tertiary);
+  --panel-3:  var(--bg-quaternary);
+  --line:     var(--border-default);
+  --line-2:   var(--border-hover);
+  --fg:        #1C1917;
+  --fg-dim:    #57534E;
+  --fg-faint:  #A8A29E;
+  --signal:      var(--accent);
+  --signal-hi:   var(--accent-hover);
+  --signal-deep: #92600A;
+  --signal-soft: rgba(200, 127, 10, 0.10);
+  --signal-line: rgba(200, 127, 10, 0.30);
+  --ok:   var(--success);
+  --off:  #B8B0A4;
+  --bad:  var(--error);
+
+  /* Shadows — softer for light mode */
+  --shadow-sm:  0 1px 3px rgba(120, 90, 40, 0.06);
+  --shadow-md:  0 4px 12px rgba(120, 90, 40, 0.08);
+  --shadow-lg:  0 12px 32px rgba(120, 90, 40, 0.10);
+  --shadow-xl:  0 24px 64px rgba(120, 90, 40, 0.12);
+  --shadow:     0 18px 48px -24px rgba(120, 90, 40, 0.14);
+}
+
+/* Light theme background override */
+[data-theme="light"] .foundry-bg {
+  background-color: var(--bg-primary);
+  background-image:
+    linear-gradient(rgba(120, 90, 40, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 90, 40, 0.03) 1px, transparent 1px);
+}
+[data-theme="light"] .foundry-bg::before {
+  background:
+    radial-gradient(1100px 600px at 50% -8%, rgba(200, 127, 10, 0.06), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, rgba(180, 140, 80, 0.08), transparent 55%);
+}
+
+/* Light theme brandbar */
+[data-theme="light"] .brandbar {
+  background: rgba(250, 247, 242, 0.85);
+}
+
+/* Light theme primary button text */
+[data-theme="light"] .btn-primary {
+  color: #FFFFFF;
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 10px 28px -12px rgba(200, 127, 10, 0.5);
+}
+[data-theme="light"] .btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* Light theme component overrides (Phase 17) */
+[data-theme="light"] .app-sidebar {
+  background: rgba(250, 247, 242, 0.92);
+}
+[data-theme="light"] .app-topbar {
+  background: rgba(250, 247, 242, 0.85);
+}
+[data-theme="light"] .app-mobile-tabs {
+  background: rgba(250, 247, 242, 0.95);
+}
+[data-theme="light"] .app-content {
+  background-image:
+    linear-gradient(rgba(120, 90, 40, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 90, 40, 0.03) 1px, transparent 1px);
+}
+[data-theme="light"] .app-content::before {
+  background:
+    radial-gradient(1100px 600px at 50% -8%, rgba(200, 127, 10, 0.05), transparent 60%),
+    radial-gradient(900px 700px at 100% 100%, rgba(180, 140, 80, 0.06), transparent 55%);
+}
+[data-theme="light"] .ui-modal-overlay {
+  background: rgba(28, 25, 23, 0.4);
+}
+[data-theme="light"] .ui-drawer-scrim {
+  background: rgba(28, 25, 23, 0.3);
+}
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #D4C5B0;
+  border-color: var(--bg-primary);
+}
+[data-theme="light"] .app-side-link:hover {
+  background: rgba(120, 90, 40, 0.05);
+}
+[data-theme="light"] .fv-console {
+  box-shadow: var(--shadow-lg), 0 0 60px rgba(200, 127, 10, 0.04);
+}
+[data-theme="light"] .ui-btn--primary {
+  color: #FFFFFF;
+}
+
+/* Smooth theme transition */
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease !important;
 }
 
 /* ---- Reset ---- */
@@ -277,6 +420,46 @@ svg { display: block; flex: none; }
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
+}
+
+/* ---- Confetti ---- */
+.confetti {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+}
+.confetti-piece {
+  position: absolute;
+  top: -10px;
+  border-radius: 2px;
+  animation: confettiFall linear forwards;
+}
+@keyframes confettiFall {
+  0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(105vh) rotate(calc(var(--confetti-rotate, 0deg) + 720deg)); opacity: 0; }
+}
+
+/* ---- Recharts theming (SVG presentation attrs can't use var(), so CSS wins) ---- */
+.chart-card .recharts-cartesian-axis-tick text,
+.chart-card .recharts-text {
+  fill: var(--fg-dim);
+  font-size: 10px;
+}
+.chart-card .recharts-cartesian-grid line {
+  stroke: var(--chart-gridline);
+}
+.chart-card .recharts-default-legend,
+.chart-card .recharts-legend-item-text {
+  color: var(--fg-dim) !important;
+  fill: var(--fg-dim) !important;
+}
+.chart-card .recharts-tooltip-wrapper {
+  outline: none;
+}
+.chart-card .recharts-label {
+  fill: var(--fg-dim);
 }
 
 /* ---- Responsive helpers ---- */

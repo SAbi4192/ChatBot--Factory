@@ -56,8 +56,8 @@ export default function RegisterView() {
         <div className="auth-brand">
           <span className="auth-mark"><Factory /></span>
           <div>
-            <div className="auth-word">Chatbot Factory</div>
-            <div className="auth-sub">universal engine · create account</div>
+            <div className="auth-word">Scarlet</div>
+            <div className="auth-sub">Chatbot Factory · create account</div>
           </div>
         </div>
 

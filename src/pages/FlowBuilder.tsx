@@ -21,10 +21,10 @@ const NODE_TYPES = [
   { type: 'handoff', label: 'Handoff', icon: UserRound, color: '#F87171' },
 ] as const;
 
-function makeNode(type: string, label: string, x: number, y: number): FlowNode {
+function makeNode(type: string, label: string, x: number, y: number, fixedId?: string): FlowNode {
   const t = NODE_TYPES.find((n) => n.type === type)!;
   return {
-    id: `${type}-${Math.random().toString(36).slice(2, 7)}`,
+    id: fixedId ?? `${type}-${Math.random().toString(36).slice(2, 7)}`,
     type: 'default',
     position: { x, y },
     data: { label: `• ${label}`, text: '', options: [], type },
@@ -43,6 +43,7 @@ export default function FlowBuilder() {
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!botId) return;
@@ -52,12 +53,12 @@ export default function FlowBuilder() {
         setNodes(flow.nodes as FlowNode[]);
         setEdges(flow.edges ?? []);
       } else {
-        // Starter flow
+        // Starter flow — node ids are fixed so the starter edges always connect.
         setNodes([
-          makeNode('message', 'Welcome message', 40, 120),
-          makeNode('question', 'What do you need?', 320, 120),
-          makeNode('ai', 'Free-form answer', 600, 60),
-          makeNode('handoff', 'Escalate to human', 600, 220),
+          makeNode('message', 'Welcome message', 40, 120, 'message-1'),
+          makeNode('question', 'What do you need?', 320, 120, 'question-1'),
+          makeNode('ai', 'Free-form answer', 600, 60, 'ai-1'),
+          makeNode('handoff', 'Escalate to human', 600, 220, 'handoff-1'),
         ]);
         setEdges([
           { id: 'e1', source: 'message-1', target: 'question-1' },
@@ -66,7 +67,7 @@ export default function FlowBuilder() {
         ]);
       }
       setLoaded(true);
-    });
+    }).catch((e) => { setLoadError((e as Error).message); setLoaded(true); });
   }, [botId]);
 
   const onConnect = useCallback((c: Connection) => setEdges((eds) => addEdge({ ...c, id: `e-${Math.random().toString(36).slice(2, 7)}` }, eds)), [setEdges]);
@@ -119,7 +120,9 @@ export default function FlowBuilder() {
       </div>
 
       <Card style={{ flex: 1, minHeight: 420, padding: 0, overflow: 'hidden' }}>
-        {loaded && (
+        {loadError ? (
+          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--error)' }}>{loadError}</div>
+        ) : loaded ? (
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -133,6 +136,8 @@ export default function FlowBuilder() {
             <Controls />
             <MiniMap style={{ background: 'var(--bg-secondary)' }} />
           </ReactFlow>
+        ) : (
+          <div className="skeleton" style={{ height: '100%', borderRadius: 0 }} />
         )}
       </Card>
       <p className="mono" style={{ marginTop: '0.6rem', fontSize: '0.7rem', color: 'var(--fg-faint)' }}>

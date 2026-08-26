@@ -5,6 +5,7 @@ import { LayoutTemplate, Loader2, Rocket } from 'lucide-react';
 import { db } from '../services/db';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
+import './LibraryView.css';
 
 interface Template {
   id: string;
@@ -24,9 +25,13 @@ export default function TemplatesView() {
   const [loading, setLoading] = useState(true);
   const [installing, setInstalling] = useState<string | null>(null);
   const [cat, setCat] = useState('All');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    db.getTemplates().then((r) => setTemplates(r.templates)).catch(() => setTemplates([])).finally(() => setLoading(false));
+    db.getTemplates()
+      .then((r) => setTemplates(r.templates))
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setLoading(false));
   }, []);
 
   const cats = useMemo(() => ['All', ...new Set(templates.map((t) => t.category))], [templates]);
@@ -67,6 +72,8 @@ export default function TemplatesView() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1rem' }}>
           {Array.from({ length: 6 }).map((_, i) => <div key={i} className="skeleton" style={{ height: 170, borderRadius: 12 }} />)}
         </div>
+      ) : error ? (
+        <EmptyState icon={<LayoutTemplate />} title="Marketplace unavailable" description={error} />
       ) : shown.length === 0 ? (
         <EmptyState icon={<LayoutTemplate />} title="No templates" description="The marketplace is empty." />
       ) : (

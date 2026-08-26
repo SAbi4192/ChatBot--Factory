@@ -41,8 +41,8 @@ export default function LoginView() {
         <div className="auth-brand">
           <span className="auth-mark"><Factory /></span>
           <div>
-            <div className="auth-word">Chatbot Factory</div>
-            <div className="auth-sub">universal engine · sign in</div>
+            <div className="auth-word">Scarlet</div>
+            <div className="auth-sub">Chatbot Factory · sign in</div>
           </div>
         </div>
 

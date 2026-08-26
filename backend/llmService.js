@@ -1,3 +1,4 @@
+import './loadEnv.js';
 import db from './db.js';
 import { GoogleGenAI } from '@google/genai';
 import Groq from 'groq-sdk';
@@ -25,8 +26,8 @@ import { runSlotEngine, runFlowEngine } from './services/engines.service.js';
 
 // --- Model configuration (override in .env if Groq renames a model) ----------
 const LOCAL_LLM_URL = process.env.LOCAL_LLM_URL || 'http://127.0.0.1:8000/api/chat';
-const GROQ_WEB_MODEL = process.env.GROQ_WEB_MODEL || 'groq/compound-mini';      // built-in web search
-const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'llama-3.3-70b-versatile'; // normal chat
+const GROQ_WEB_MODEL = process.env.GROQ_WEB_MODEL || 'openai/gpt-oss-20b';      // built-in web search
+const GROQ_CHAT_MODEL = process.env.GROQ_CHAT_MODEL || 'openai/gpt-oss-20b'; // normal chat
 const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
 const GROQ_KEY = process.env.GROQ_API_KEY;
@@ -43,12 +44,26 @@ const gemini = hasGemini() ? new GoogleGenAI({ apiKey: GEMINI_KEY }) : null;
 import { isCurrentQuery } from './currentInfo.js';
 
 // --- Prompt builder for the local model --------------------------------------
+/**
+ * Conversation-handling rules appended to EVERY model's system prompt at call
+ * time (local, Groq, Gemini, streamed or not). These fix the small-model habit
+ * of replying "it seems like you meant X?" to a clear personal statement — a
+ * dental bot must engage with "I got my sweet tooth at 8", not interrogate it.
+ */
+const CONVERSATION_RULES = `CONVERSATION HANDLING:
+- When the user shares a personal experience, story, or statement about themselves related to your field (for example "I got my sweet tooth at age 8" or "I had a dental surgery"), respond directly and warmly to what they said. Do NOT reply "it seems like you meant X" or claim the message is unclear.
+- When the user continues or elaborates on their previous message, respond to the new information directly instead of re-asking what they meant.
+- Interpret casual phrasing and typos sensibly ("I have done my dental surger on age 8" means they had dental surgery at age 8).
+- Only ask for clarification when a real question is missing essential details.
+- Acknowledge the user's experience with empathy, then add useful information or a relevant follow-up question.`;
+
 function buildLocalPrompt(bot, history, userMessage) {
   const profile = typeof bot.domainProfile === 'string'
     ? JSON.parse(bot.domainProfile)
     : bot.domainProfile;
 
   let p = `${bot.systemPrompt}\n`;
+  p += `\n${CONVERSATION_RULES}\n`;
   if (profile?.description) {
     p += `\nDomain context: ${profile.description}\n`;
   }
@@ -63,6 +78,57 @@ function buildLocalPrompt(bot, history, userMessage) {
 // --- Providers ---------------------------------------------------------------
 class LocalUnavailableError extends Error { }
 
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Small local models often keep role-playing after their answer: they repeat
+ * the bot's own name ("Heal: ... Heal: ..."), invent "User:" turns, continue
+ * the conversation themselves, or pad replies with emoji spam
+ * ("🌟💖 🌟💖 🌟💖 …" × 40). Strip the leading name echo, cut at the first
+ * line that starts a new speaker, and collapse emoji runs so the bot answers
+ * ONCE with a clean reply.
+ */
+export function cleanLocalResponse(text, botName) {
+  let t = String(text || '').trim();
+  if (!t) return t;
+
+  const nameRe = botName ? `(?:${escapeRe(String(botName).trim())}\\s*:|assistant\\s*:)` : '(?:assistant\\s*:)';
+
+  // Strip the leading "BotName:" / "Assistant:" echo the model prepends.
+  t = t.replace(new RegExp(`^${nameRe}`, 'i'), '').trim();
+
+  // Cut at the first later line that starts a new speaker.
+  const out = [];
+  for (const line of t.split('\n')) {
+    const trimmed = line.trim();
+    if (out.length > 0 && /^(user|human|you)\s*:/i.test(trimmed)) break;
+    if (out.length > 0 && botName && new RegExp(`^${escapeRe(String(botName).trim())}\\s*:`, 'i').test(trimmed)) break;
+    out.push(line);
+  }
+  return collapseEmojiSpam(out.join('\n').trim());
+}
+
+/**
+ * Collapse decorative emoji spam: runs of 3+ identical emojis shrink to one,
+ * and the whole reply keeps at most 8 emoji characters total.
+ */
+export function collapseEmojiSpam(text) {
+  let t = String(text || '');
+  // "🌟💖 🌟💖 🌟💖" -> "🌟💖"
+  t = t.replace(/(\p{Extended_Pictographic})(?:\s*\1){2,}/gu, '$1');
+  // Drop emojis beyond the first 8.
+  let count = 0;
+  let out = '';
+  for (const ch of t) {
+    if (/\p{Extended_Pictographic}/u.test(ch)) {
+      count += 1;
+      if (count > 8) continue;
+    }
+    out += ch;
+  }
+  return out.trim();
+}
+
 async function fetchFromLocal(bot, history, userMessage) {
   const promptText = buildLocalPrompt(bot, history, userMessage);
   let resp;
@@ -72,7 +138,7 @@ async function fetchFromLocal(bot, history, userMessage) {
     resp = await fetch(LOCAL_LLM_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: promptText, temperature: 0.7, max_tokens: 800 }),
+      body: JSON.stringify({ prompt: promptText, temperature: 0.7, max_tokens: 500 }),
       signal: controller.signal
     });
     clearTimeout(timeout);
@@ -81,7 +147,7 @@ async function fetchFromLocal(bot, history, userMessage) {
   }
   if (!resp.ok) throw new LocalUnavailableError(`Local LLM error: ${resp.status} ${resp.statusText}`);
   const data = await resp.json();
-  const text = (data.response || data.text || '').trim();
+  const text = cleanLocalResponse(data.response || data.text || '', bot.name);
   if (!text) throw new LocalUnavailableError('Local LLM returned empty response');
   return { response: text, sources: null, provider: 'local' };
 }
@@ -89,7 +155,7 @@ async function fetchFromLocal(bot, history, userMessage) {
 async function fetchFromGroqChat(bot, history, userMessage) {
   if (!groq) throw new Error('Groq not configured');
   const messages = [
-    { role: 'system', content: bot.systemPrompt },
+    { role: 'system', content: `${bot.systemPrompt}\n\n${CONVERSATION_RULES}` },
     ...history.map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: userMessage }
   ];
@@ -97,7 +163,7 @@ async function fetchFromGroqChat(bot, history, userMessage) {
     model: GROQ_CHAT_MODEL,
     messages,
     temperature: 0.7,
-    max_tokens: 900
+    max_tokens: 2000
   });
   const response = completion.choices?.[0]?.message?.content?.trim() || 'No response generated.';
   return { response, sources: null, provider: 'cloud' };
@@ -125,7 +191,7 @@ function extractGroqSources(message) {
 async function fetchFromGroqWeb(bot, history, userMessage) {
   if (!groq) throw new Error('Groq not configured');
   const messages = [
-    { role: 'system', content: `${bot.systemPrompt}\n\nWhen answering questions about current/recent information, use web search and cite what you find.` },
+    { role: 'system', content: `${bot.systemPrompt}\n\n${CONVERSATION_RULES}\n\nWhen answering questions about current/recent information, use web search and cite what you find.` },
     ...history.map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: userMessage }
   ];
@@ -154,7 +220,7 @@ async function fetchFromGemini(bot, history, userMessage) {
   const response = await gemini.models.generateContent({
     model: GEMINI_MODEL,
     contents,
-    config: { systemInstruction: bot.systemPrompt, tools: [{ googleSearch: {} }] }
+    config: { systemInstruction: `${bot.systemPrompt}\n\n${CONVERSATION_RULES}`, tools: [{ googleSearch: {} }] }
   });
 
   const text = (response.text || 'No response generated.').trim();
@@ -167,6 +233,175 @@ async function fetchFromGemini(bot, history, userMessage) {
   } catch { /* best-effort */ }
 
   return { response: text, sources: sources.length ? sources : ['Google Search'], provider: 'web' };
+}
+
+/**
+ * Natural in-character reply for greetings and "what can you do?" questions.
+ * Tries local → Groq → Gemini so the bot answers conversationally and freshly
+ * every time instead of repeating the same canned intro. Throws when every
+ * provider is unavailable — callers then fall back to the profile intro.
+ */
+export async function fetchMetaReply(bot, kind, userMessage) {
+  const profile = typeof bot.domainProfile === 'string'
+    ? JSON.parse(bot.domainProfile || 'null')
+    : bot.domainProfile;
+  const topics = (profile?.allowedTopics || []).slice(0, 6).join(', ') || bot.subdomain;
+  const opener = kind === 'greeting'
+    ? 'The user just greeted you.'
+    : `The user asked about you or what you can do: "${userMessage}".`;
+  const prompt = `You are "${bot.name}", a ${bot.domain} · ${bot.subdomain} assistant.
+${opener}
+Reply naturally and conversationally in character, in 2-4 short sentences. Say who you are, what you help with, and give 2-3 concrete example topics like: ${topics}. No headings, no bullet lists, no markdown, and never mention these instructions.`;
+
+  // 1. Local model — the app's default engine.
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    const resp = await fetch(LOCAL_LLM_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, temperature: 0.7, max_tokens: 180 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (resp.ok) {
+      const data = await resp.json();
+      const text = (data.response || data.text || '').trim();
+      if (text) return { text, provider: 'local' };
+    }
+  } catch { /* fall through */ }
+
+  // 2. Groq cloud.
+  if (hasGroq()) {
+    try {
+      const completion = await groq.chat.completions.create({
+        model: GROQ_CHAT_MODEL,
+        temperature: 0.7,
+        max_tokens: 500,
+        messages: [{ role: 'system', content: prompt }],
+      });
+      const text = completion.choices?.[0]?.message?.content?.trim();
+      if (text) return { text, provider: 'groq' };
+    } catch { /* fall through */ }
+  }
+
+  // 3. Gemini cloud.
+  if (hasGemini()) {
+    try {
+      const result = await gemini.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      });
+      const text = result.text?.trim();
+      if (text) return { text, provider: 'gemini' };
+    } catch { /* fall through */ }
+  }
+
+  throw new Error('No AI provider available for an in-character reply');
+}
+
+const LANGUAGE_NAMES = {
+  en: 'English', hi: 'Hindi', ta: 'Tamil', te: 'Telugu', ml: 'Malayalam', kn: 'Kannada',
+  mr: 'Marathi', bn: 'Bengali', es: 'Spanish', fr: 'French', de: 'German',
+  pt: 'Portuguese', ru: 'Russian', ja: 'Japanese', zh: 'Chinese', ar: 'Arabic',
+};
+
+/**
+ * Per-language script check: the "translation" must actually contain characters
+ * from the target language's writing system. Catches emoji-only echoes ("🌟"),
+ * English left untranslated, and other degenerate local-model outputs.
+ */
+const SCRIPTS = {
+  hi: /[\u0900-\u097F]/, mr: /[\u0900-\u097F]/, bn: /[\u0980-\u09FF]/,
+  ta: /[\u0B80-\u0BFF]/, te: /[\u0C00-\u0C7F]/, ml: /[\u0D00-\u0D7F]/, kn: /[\u0C80-\u0CFF]/,
+  ja: /[\u3040-\u30FF\u3400-\u9FFF]/, zh: /[\u3400-\u9FFF]/, ar: /[\u0600-\u06FF]/,
+  ru: /[\u0400-\u04FF]/,
+  en: /[A-Za-z]/,
+};
+function isValidTranslation(out, lang) {
+  const t = String(out || '').replace(/[\p{Extended_Pictographic}\s\p{P}\d]/gu, '');
+  if (t.length < 2) return false; // emoji / punctuation-only output
+  return (SCRIPTS[lang] || /[A-Za-z]/).test(t);
+}
+export { isValidTranslation };
+
+/**
+ * Translate a snippet of text with a cloud provider (Groq or Gemini). ALL
+ * providers are queried in parallel and the first VALID result wins (fastest
+ * provider wins when it works; a garbage output is rejected and the next
+ * attempt is used). Emojis are stripped from the input so the model can't
+ * echo them.
+ *
+ * IMPORTANT: the tiny local GGUF model cannot translate — even for Latin
+ * scripts it echoes the prompt and mixes languages. Translation therefore
+ * requires a working Groq or Gemini key, and the error message says so
+ * instead of serving garbage.
+ */
+export async function translateText(text, lang) {
+  const langName = LANGUAGE_NAMES[lang] || lang;
+  const cleanText = String(text || '')
+    .replace(/[\p{Extended_Pictographic}\u200D]/gu, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 1500);
+  const prompt = `Translate the following text to ${langName}. Respond with ONLY the translated text — no explanations, no quotes, no emojis.\n\n${cleanText}`;
+
+  const makeValid = (attempt) => (async () => {
+    const out = await attempt; // `attempt` is an already-started promise — await it, don't call it
+    if (!isValidTranslation(out, lang)) throw new Error('unusable translation output');
+    return out;
+  })();
+
+  const attempts = [];
+
+  // 1. Groq — with a model fallback chain for accounts with limited access.
+  if (hasGroq()) {
+    attempts.push(makeValid((async () => {
+      const candidates = [...new Set([GROQ_CHAT_MODEL, 'openai/gpt-oss-20b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'])];
+      for (const model of candidates) {
+        try {
+          const completion = await groq.chat.completions.create({
+            model,
+            temperature: 0.2,
+            max_tokens: 2000, // gpt-oss is a reasoning model — it needs headroom after reasoning tokens
+            messages: [{ role: 'user', content: prompt }],
+          });
+          const out = completion.choices?.[0]?.message?.content?.trim();
+          if (out) return out;
+          throw new Error('empty');
+        } catch (e) {
+          // Model-name errors (404 / not exist / decommissioned) mean "try the
+          // next candidate"; anything else is a real failure.
+          if (!/404|not exist|does not exist|decommissioned|invalid_request/i.test(e.message)) throw e;
+        }
+      }
+      throw new Error('all groq models unavailable');
+    })()));
+  }
+
+  // 2. Gemini.
+  if (hasGemini()) {
+    attempts.push(makeValid((async () => {
+      try {
+        const result = await gemini.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        });
+        const out = result.text?.trim();
+        if (out) return out;
+      } catch { /* this attempt failed */ }
+      throw new Error('gemini unavailable');
+    })()));
+  }
+
+  if (!attempts.length) throw new Error('No AI provider available for translation');
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    throw new Error(
+      'Translation needs a working Groq or Gemini API key — the local model cannot translate reliably. Add a key in .env (Gemini quota resets hourly).'
+    );
+  }
 }
 
 // --- Web chain: Groq -> Gemini -> (last resort) local ------------------------
@@ -231,22 +466,31 @@ export async function routeAndPersist(bot, conversationId, userMessage, history)
 
   if (!relevance.relevant) {
     console.log(`[Router] Action: DOMAIN_REDIRECT`);
-    const redirectMsg = generateRedirectMessage(bot);
+    const redirectMsg = generateRedirectMessage(bot, userMessage);
     const aid = uid();
     await db.addMessage(aid, conversationId, 'assistant', redirectMsg, Date.now(), 'domain-guard', null);
     return { response: redirectMsg, messageId: aid, provider: 'domain-guard', sources: null };
   }
 
   // ---- 1b. GREETING / "WHAT CAN YOU DO?" ----
-  // Answered straight from the bot's own profile: instant, costs no AI call, and
-  // works even with every provider offline. Crucially it is never a refusal —
-  // a bot that rejects "hi" looks broken.
+  // Answered naturally by the AI when any provider is available — fresh and
+  // conversational every time — falling back to the bot's profile intro when
+  // every provider is offline. Crucially it is never a refusal: a bot that
+  // rejects "hi" looks broken.
   if (relevance.kind === 'greeting' || relevance.kind === 'meta') {
-    console.log(`[Router] Action: BOT_PROFILE_REPLY (${relevance.kind})`);
-    const introMsg = generateIntroMessage(bot, relevance.kind);
+    console.log(`[Router] Action: SOCIAL_REPLY (${relevance.kind})`);
+    let reply;
+    let provider = 'profile';
+    try {
+      const r = await fetchMetaReply(bot, relevance.kind, userMessage);
+      reply = r.text;
+      provider = r.provider;
+    } catch {
+      reply = generateIntroMessage(bot, relevance.kind);
+    }
     const aid = uid();
-    await db.addMessage(aid, conversationId, 'assistant', introMsg, Date.now(), 'profile', null);
-    return { response: introMsg, messageId: aid, provider: 'profile', sources: null };
+    await db.addMessage(aid, conversationId, 'assistant', reply, Date.now(), provider, null);
+    return { response: reply, messageId: aid, provider, sources: null };
   }
 
   // ---- 1c. DETERMINISTIC ENGINES (slot forms / visual flows) ----
@@ -363,33 +607,66 @@ export async function visionAnalyze(bot, imageBase64, mime, prompt = 'Describe t
 }
 
 /**
- * Compare the same message across two providers (side-by-side view).
+ * Compare the same message across every configured provider (side-by-side
+ * view). All three run in parallel; a failing provider reports its error
+ * instead of silently disappearing, so the UI always shows three columns.
  */
 export async function compareModels(bot, userMessage) {
   const results = [];
-  const seen = new Set();
 
-  if (hasGroq() && !seen.has('groq')) {
-    seen.add('groq');
+  const run = async (provider, model, fn) => {
     try {
-      const r = await fetchFromGroqChat(bot, [], userMessage);
-      results.push({ provider: 'groq', model: GROQ_CHAT_MODEL, response: r.response });
-    } catch (e) { results.push({ provider: 'groq', model: GROQ_CHAT_MODEL, response: `Error: ${e.message}` }); }
-  }
-  if (hasGemini() && !seen.has('gemini')) {
-    seen.add('gemini');
-    try {
-      const r = await fetchFromGemini(bot, [], userMessage);
-      results.push({ provider: 'gemini', model: GEMINI_MODEL, response: r.response });
-    } catch (e) { results.push({ provider: 'gemini', model: GEMINI_MODEL, response: `Error: ${e.message}` }); }
-  }
-  if (!results.length) {
-    try {
-      const r = await fetchFromLocal(bot, [], userMessage);
-      results.push({ provider: 'local', model: 'GGUF', response: r.response });
-    } catch (e) { results.push({ provider: 'local', model: 'GGUF', response: `Error: ${e.message}` }); }
-  }
-  return results;
+      const r = await fn();
+      results.push({ provider, model, response: r.response });
+    } catch (e) {
+      results.push({ provider, model, response: `Unavailable: ${e.message}` });
+    }
+  };
+
+  // Groq model fallback chain: accounts differ in which models they can call,
+  // so if the configured model 404s, try common alternatives.
+  const runGroq = async () => {
+    const candidates = [...new Set([GROQ_CHAT_MODEL, 'openai/gpt-oss-20b', 'llama-3.1-8b-instant', 'llama-3.3-70b-versatile'])];
+    const last = candidates[candidates.length - 1];
+    for (const model of candidates) {
+      try {
+        const r = await fetchFromGroqChatWithModel(bot, [], userMessage, model);
+        results.push({ provider: 'groq', model, response: r.response });
+        return;
+      } catch (e) {
+        if (model === last || !/404|not exist|does not exist|decommissioned|invalid_request/i.test(e.message)) {
+          results.push({ provider: 'groq', model: GROQ_CHAT_MODEL, response: `Unavailable: ${e.message}` });
+          return;
+        }
+      }
+    }
+  };
+
+  await Promise.all([
+    run('local', 'Local GGUF', () => fetchFromLocal(bot, [], userMessage)),
+    hasGroq() ? runGroq() : run('groq', GROQ_CHAT_MODEL, async () => { throw new Error('no Groq API key configured'); }),
+    run('gemini', GEMINI_MODEL, () => fetchFromGemini(bot, [], userMessage)),
+  ]);
+
+  return results.sort((a, b) => (a.provider === 'local' ? -1 : b.provider === 'local' ? 1 : 0));
+}
+
+/** fetchFromGroqChat with an explicit model override. */
+async function fetchFromGroqChatWithModel(bot, history, userMessage, model) {
+  if (!groq) throw new Error('Groq not configured');
+  const messages = [
+    { role: 'system', content: `${bot.systemPrompt}\n\n${CONVERSATION_RULES}` },
+    ...history.map(m => ({ role: m.role, content: m.content })),
+    { role: 'user', content: userMessage }
+  ];
+  const completion = await groq.chat.completions.create({
+    model,
+    messages,
+    temperature: 0.7,
+    max_tokens: 2000
+  });
+  const response = completion.choices?.[0]?.message?.content?.trim() || 'No response generated.';
+  return { response, sources: null, provider: 'cloud' };
 }
 
 // Report which providers are available (used by /api/health + the UI status dot).
@@ -434,7 +711,7 @@ export async function streamChatResponse(botId, conversationId, userMessage, emi
   // ---- 1. DOMAIN GUARD ----
   const relevance = await checkDomainRelevance(bot, userMessage, history);
   if (!relevance.relevant) {
-    const redirectMsg = generateRedirectMessage(bot);
+    const redirectMsg = generateRedirectMessage(bot, userMessage);
     const aid = uid();
     await db.addMessage(aid, conversationId, 'assistant', redirectMsg, Date.now(), 'domain-guard', null);
     emit(redirectMsg);
@@ -443,11 +720,19 @@ export async function streamChatResponse(botId, conversationId, userMessage, emi
 
   // ---- 1b. GREETING / META ----
   if (relevance.kind === 'greeting' || relevance.kind === 'meta') {
-    const introMsg = generateIntroMessage(bot, relevance.kind);
+    let reply;
+    let provider = 'profile';
+    try {
+      const r = await fetchMetaReply(bot, relevance.kind, userMessage);
+      reply = r.text;
+      provider = r.provider;
+    } catch {
+      reply = generateIntroMessage(bot, relevance.kind);
+    }
     const aid = uid();
-    await db.addMessage(aid, conversationId, 'assistant', introMsg, Date.now(), 'profile', null);
-    emit(introMsg);
-    return { response: introMsg, messageId: aid, provider: 'profile', sources: null, streamed: false };
+    await db.addMessage(aid, conversationId, 'assistant', reply, Date.now(), provider, null);
+    emit(reply);
+    return { response: reply, messageId: aid, provider, sources: null, streamed: false };
   }
 
   // ---- 2. STREAM from Groq (supports streaming) ----
@@ -467,7 +752,7 @@ export async function streamChatResponse(botId, conversationId, userMessage, emi
 
 async function streamFromGroq(bot, history, userMessage, emit, conversationId) {
   const messages = [
-    { role: 'system', content: bot.systemPrompt },
+    { role: 'system', content: `${bot.systemPrompt}\n\n${CONVERSATION_RULES}` },
     ...history.map(m => ({ role: m.role, content: m.content })),
     { role: 'user', content: userMessage }
   ];
@@ -475,7 +760,7 @@ async function streamFromGroq(bot, history, userMessage, emit, conversationId) {
     model: GROQ_CHAT_MODEL,
     messages,
     temperature: 0.7,
-    max_tokens: 900,
+    max_tokens: 2000,
     stream: true,
   });
 
@@ -523,19 +808,68 @@ export async function buildWindowedHistory(bot, conversationId, maxTurns = 10) {
   return [{ role: 'system', content: `Summary of earlier conversation: ${summary}` }, ...recent];
 }
 
-/** Summarize a block of text with the cloud LLM (Groq), falling back to heuristic. */
+/**
+ * Summarize a block of text with any available provider, local-first:
+ *   1. Local GGUF (the app's default engine)
+ *   2. Groq cloud
+ *   3. Gemini cloud
+ * Throws only when every provider is unavailable — callers then fall back
+ * to the deterministic heuristic summary.
+ */
 export async function summarizeText(text) {
-  if (hasGroq()) {
-    const completion = await groq.chat.completions.create({
-      model: GROQ_CHAT_MODEL,
-      temperature: 0.3,
-      max_tokens: 220,
-      messages: [
-        { role: 'system', content: 'Summarize the following conversation concisely in 2-3 sentences. Keep names and key facts.' },
-        { role: 'user', content: text.slice(0, 6000) },
-      ],
+  const payload = text.slice(0, 6000);
+
+  // 1. Local model — same endpoint the chat uses, lower temperature + shorter
+  // output so it stays concise instead of continuing the conversation.
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    const resp = await fetch(LOCAL_LLM_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prompt: `Summarize the following conversation in a short paragraph (2-4 sentences). Keep names, decisions, and key facts. Do not continue the conversation.\n\n${payload}`,
+        temperature: 0.3,
+        max_tokens: 400,
+      }),
+      signal: controller.signal,
     });
-    return completion.choices?.[0]?.message?.content?.trim() || 'Summary unavailable.';
+    clearTimeout(timeout);
+    if (resp.ok) {
+      const data = await resp.json();
+      const text = cleanLocalResponse(data.response || data.text || '', null);
+      if (text) return text;
+    }
+  } catch { /* fall through to cloud providers */ }
+
+  // 2. Groq cloud.
+  if (hasGroq()) {
+    try {
+      const completion = await groq.chat.completions.create({
+        model: GROQ_CHAT_MODEL,
+        temperature: 0.3,
+        max_tokens: 800,
+        messages: [
+          { role: 'system', content: 'Summarize the following conversation concisely in 2-4 sentences. Keep names, decisions, and key facts. Do not continue the conversation.' },
+          { role: 'user', content: payload },
+        ],
+      });
+      const out = completion.choices?.[0]?.message?.content?.trim();
+      if (out) return out;
+    } catch { /* fall through */ }
   }
-  throw new Error('No cloud provider for summarization');
+
+  // 3. Gemini cloud.
+  if (hasGemini()) {
+    try {
+      const result = await gemini.models.generateContent({
+        model: GEMINI_MODEL,
+        contents: [{ role: 'user', parts: [{ text: `Summarize the following conversation concisely in 2-4 sentences. Keep names, decisions, and key facts. Do not continue the conversation.\n\n${payload}` }] }],
+      });
+      const out = result.text?.trim();
+      if (out) return out;
+    } catch { /* fall through */ }
+  }
+
+  throw new Error('No AI provider available for summarization');
 }
