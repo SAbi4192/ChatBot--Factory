@@ -1,0 +1,12 @@
+# Docker build context exclusions (root context, see docker/docker-compose.yml)
+node_modules
+dist
+data
+models
+.git
+*.db
+*.db-journal
+.env
+.dockerignore
+docker-compose.yml
+Dockerfile

@@ -1,0 +1,27 @@
+# ============================================================
+# Scarlet Chatbot Factory — backend image
+# Express + Prisma API on port 3001
+# ============================================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install dependencies first (layer caching)
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# Copy the whole project (see .dockerignore for exclusions)
+COPY . .
+
+# Generate the Prisma client for this platform
+RUN npx prisma generate
+
+ENV NODE_ENV=production
+ENV PORT=3001
+
+EXPOSE 3001
+
+# Apply schema changes (fresh volume or migration history) then boot.
+# `migrate deploy` is non-interactive; `db push` is the fallback for
+# schemas whose migrations are not yet committed.
+CMD ["sh", "-c", "npx prisma migrate deploy 2>/dev/null || npx prisma db push --accept-data-loss; node backend/server.js"]

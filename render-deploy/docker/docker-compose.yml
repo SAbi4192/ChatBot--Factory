@@ -1,0 +1,49 @@
+# ============================================================
+# Scarlet Chatbot Factory — Docker Compose
+# ------------------------------------------------------------
+# One command:   docker compose -f docker/docker-compose.yml up
+# Then open:     http://localhost:5173
+#
+# With the local model (needs models/llm-model.gguf):
+#   docker compose -f docker/docker-compose.yml --profile llm up
+#
+# The backend reads docker/.env  (copy .env.example -> .env first).
+# ============================================================
+services:
+  backend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "3001:3001"
+    env_file:
+      - ../.env
+    environment:
+      - DATABASE_URL=file:../data/chatbot_factory.db
+      - LOCAL_LLM_URL=http://llm:8000/api/chat
+    volumes:
+      - ../data:/app/data
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Optional local GGUF model server (llama.cpp via python).
+  # Enable with the `llm` profile; mount the model file under ./models.
+  llm:
+    profiles: ["llm"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.llm
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../models:/app/models
+    restart: unless-stopped

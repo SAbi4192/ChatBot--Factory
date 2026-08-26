@@ -1,0 +1,291 @@
+// Universal Chatbot Factory — enterprise schema
+// ============================================================================
+// Provider: sqlite by default (zero-config demo). Switching to PostgreSQL is
+// a one-line change (provider + DATABASE_URL) and a fresh `prisma migrate`.
+//
+// Conventions:
+//   - Model fields are camelCase; columns are snake_case via @map
+//   - SQLite has no enums -> String fields + constants in backend/constants.js
+//   - Timestamps are DateTime in the DB, exposed as epoch-ms at the API
+//     boundary (see the mappers in backend/db.js)
+//   - Cascade deletes are enforced by the ORM (onDelete: Cascade)
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// --- Core: bots / conversations / messages -----------------------------------
+
+model Bot {
+  id              String   @id
+  name            String
+  domain          String
+  subdomain       String
+  description     String?
+  personality     String?
+  systemPrompt    String?  @map("system_prompt")
+  theme           String?
+  designDna       Json?    @map("design_dna")
+  avatar          String?
+  welcomeMessage  String?  @map("welcome_message")
+  starterQuestions Json?   @map("starter_questions")
+  domainProfile   Json?    @map("domain_profile")
+  favorite        Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @map("updated_at")
+  creationMethod  String   @default("factory") @map("creation_method")
+  orgId           String?  @map("org_id")
+
+  // Builder features (Checkpoint 8)
+  personalityTraits Json?   @map("personality_traits")
+  guardStrictness   String  @default("moderate") @map("guard_strictness")
+  memoryEnabled     Boolean @default(true) @map("memory_enabled")
+  provider          String? // per-bot model selection (Checkpoint 9)
+  flow              Json?
+  slots             Json?
+
+  org              Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
+  conversations    Conversation[]
+  knowledgeBases   KnowledgeBase[]
+  botVersions      BotVersion[]
+  analyticsEvents  AnalyticsEvent[]
+  embeddableConfig EmbeddableConfig[]
+  agentSessions    AgentSession[]
+
+  @@map("bots")
+}
+
+model Conversation {
+  id        String   @id
+  botId     String   @map("bot_id")
+  title     String?
+  createdAt DateTime @map("created_at")
+  updatedAt DateTime @map("updated_at")
+  slotState Json?    @map("slot_state")
+
+  bot      Bot       @relation(fields: [botId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String   @id
+  conversationId String   @map("conversation_id")
+  role           String
+  content        String
+  provider       String   @default("local")
+  sources        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Forward-looking fields used by later checkpoints (streaming, NLU,
+  // analytics). Nullable so legacy rows migrate cleanly.
+  responseMs Int?    @map("response_ms")
+  sentiment  String?
+  language   String?
+  pinned     Boolean @default(false)
+  nlu        Json?
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  feedback    Feedback?
+
+  @@map("messages")
+}
+
+// --- Auth & multi-tenancy (Checkpoint 2) -------------------------------------
+
+model User {
+  id           String   @id
+  email        String   @unique
+  name         String?
+  avatar       String?
+  role         String   @default("viewer")
+  passwordHash String?  @map("password_hash")
+  tokenVersion Int      @default(0) @map("token_version")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+
+  memberships        OrgMember[]
+  ownedOrganizations Organization[]
+  agentSessions      AgentSession[]
+  feedback           Feedback[]
+  invitesUsed        Invite[]
+
+  @@map("users")
+}
+
+model Organization {
+  id        String   @id
+  name      String
+  slug      String   @unique
+  ownerId   String   @map("owner_id")
+  plan      String   @default("free")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Usage quotas (demo plans; adjustable per org)
+  maxBots           Int @default(200)  @map("max_bots")
+  maxMessagesPerDay Int @default(500)  @map("max_messages_per_day")
+  maxMembers        Int @default(10)   @map("max_members")
+
+  owner             User               @relation(fields: [ownerId], references: [id])
+  members           OrgMember[]
+  bots              Bot[]
+  invites           Invite[]
+  embeddableConfigs EmbeddableConfig[]
+
+  @@map("organizations")
+}
+
+model Invite {
+  id        String   @id
+  orgId     String   @map("org_id")
+  code      String   @unique
+  role      String   @default("viewer")
+  createdAt DateTime @default(now()) @map("created_at")
+  expiresAt DateTime @map("expires_at")
+  usedBy    String?  @map("used_by")
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User?        @relation(fields: [usedBy], references: [id], onDelete: SetNull)
+
+  @@map("invites")
+}
+
+model OrgMember {
+  id     String @id
+  orgId  String @map("org_id")
+  userId String @map("user_id")
+  role   String @default("viewer")
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@map("org_members")
+}
+
+// --- RAG knowledge base (Checkpoint 5) ---------------------------------------
+
+model KnowledgeBase {
+  id        String   @id
+  botId     String   @map("bot_id")
+  name      String
+  type      String   @default("upload")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bot       Bot                 @relation(fields: [botId], references: [id], onDelete: Cascade)
+  documents KnowledgeDocument[]
+  chunks    KnowledgeChunk[]
+
+  @@map("knowledge_bases")
+}
+
+model KnowledgeDocument {
+  id        String   @id
+  kbId      String   @map("kb_id")
+  name      String
+  status    String   @default("processing") // processing | ready | failed
+  chunkCount Int     @default(0) @map("chunk_count")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  kb     KnowledgeBase     @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  chunks KnowledgeChunk[]
+
+  @@map("knowledge_documents")
+}
+
+model KnowledgeChunk {
+  id        String   @id
+  kbId      String   @map("kb_id")
+  docId     String?  @map("doc_id")
+  content   String
+  embedding Json?
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  kb  KnowledgeBase     @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  doc KnowledgeDocument? @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@map("knowledge_chunks")
+}
+
+// --- Analytics (Checkpoint 6) ------------------------------------------------
+
+model AnalyticsEvent {
+  id        String   @id
+  botId     String?  @map("bot_id")
+  orgId     String?  @map("org_id")
+  eventType String   @map("event_type")
+  data      Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  bot Bot? @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("analytics_events")
+}
+
+model Feedback {
+  id        String   @id
+  messageId String   @unique @map("message_id")
+  userId    String?  @map("user_id")
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("feedback")
+}
+
+// --- Human-in-the-loop (Checkpoint 9) ----------------------------------------
+
+model AgentSession {
+  id             String    @id
+  botId          String    @map("bot_id")
+  conversationId String    @map("conversation_id")
+  agentUserId    String?   @map("agent_user_id")
+  status         String    @default("queued") // queued | active | closed
+  notes          Json?
+  createdAt      DateTime  @map("created_at")
+  closedAt       DateTime? @map("closed_at")
+
+  bot  Bot?  @relation(fields: [botId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [agentUserId], references: [id], onDelete: SetNull)
+
+  @@map("agent_sessions")
+}
+
+// --- Versioning & widget (Checkpoints 8 & 9) ---------------------------------
+
+model BotVersion {
+  id             String   @id
+  botId          String   @map("bot_id")
+  version        Int
+  configSnapshot Json     @map("config_snapshot")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  bot Bot @relation(fields: [botId], references: [id], onDelete: Cascade)
+
+  @@map("bot_versions")
+}
+
+model EmbeddableConfig {
+  id             String   @id
+  botId          String   @map("bot_id")
+  orgId          String?  @map("org_id")
+  allowedOrigins Json?    @map("allowed_origins")
+  themeOverrides Json?    @map("theme_overrides")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  bot  Bot          @relation(fields: [botId], references: [id], onDelete: Cascade)
+  org  Organization? @relation(fields: [orgId], references: [id], onDelete: SetNull)
+
+  @@map("embeddable_configs")
+}

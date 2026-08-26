@@ -1,0 +1,3 @@
+# Local LLM server dependency (serves models/llm-model.gguf over HTTP).
+# CPU wheels are available for Windows/macOS/Linux.
+llama-cpp-python>=0.2.90
