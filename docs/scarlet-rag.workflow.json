@@ -1,0 +1,65 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "How RAG Works in Scarlet ChatBot Factory",
+    "subtitle": "Upload docs → chunk → retrieve top-5 → grounded answer with sources",
+    "visual_preset": "signal-flow",
+    "quality_profile": "showcase",
+    "output": "docs/Scarlet-RAG-Workflow.html",
+    "views": [
+      { "id": "ingest", "label": "1. Knowledge setup", "focus": ["upload", "parse", "chunk", "store"], "note": "One-time: owner uploads PDF/DOCX/CSV/URL; files are cleaned, split into 500-char chunks and saved in SQLite." },
+      { "id": "answer", "label": "2. Question to grounded answer", "focus": ["user", "guard", "hook", "search", "augment", "llm", "reply"], "note": "Every chat message: guard first, then top-5 matching chunks are injected into the prompt so the LLM answers from facts." },
+      { "id": "fallback", "label": "3. When KB has nothing", "focus": ["search", "plain", "llm"], "note": "No matching chunks → the message passes through unmodified; plain LLM answer, no fake citations." }
+    ]
+  },
+  "lanes": [
+    { "id": "setup", "label": "Knowledge Ingestion (one-time)" },
+    { "id": "runtime", "label": "Chat Runtime" },
+    { "id": "retrieval", "label": "RAG Retrieval Engine" },
+    { "id": "fallback", "label": "No KB Match", "variant": "exception" }
+  ],
+  "phases": [
+    { "id": "intake", "label": "Intake", "fromCol": 0, "toCol": 1 },
+    { "id": "retrieve", "label": "Retrieve + Augment", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "generate", "label": "Generate + Reply", "fromCol": 4, "toCol": 5, "variant": "dashed" }
+  ],
+  "groups": [
+    { "id": "chunk_work", "label": "Chunk pipeline", "lane": "setup", "fromCol": 1, "toCol": 3 },
+    { "id": "aug_work", "label": "withRagAugment", "lane": "runtime", "fromCol": 2, "toCol": 4, "variant": "emphasis" }
+  ],
+  "mainPath": ["user", "guard", "hook", "search", "augment", "llm", "reply"],
+  "nodes": [
+    { "id": "upload", "lane": "setup", "col": 0, "type": "external", "label": "Doc Upload", "sublabel": "PDF/DOCX/CSV/URL", "width": 138 },
+    { "id": "parse", "lane": "setup", "col": 1, "type": "backend", "label": "Parse + Clean", "sublabel": "strip binary junk", "width": 138 },
+    { "id": "chunk", "lane": "setup", "col": 2, "type": "backend", "label": "Chunk Split", "sublabel": "500 chars, 50 overlap", "width": 138 },
+    { "id": "store", "lane": "setup", "col": 3, "type": "database", "label": "SQLite KB", "sublabel": "bot_chunks table", "tag": "per-bot", "width": 138 },
+    { "id": "user", "lane": "runtime", "col": 0, "type": "frontend", "label": "Customer", "sublabel": "asks question", "width": 138 },
+    { "id": "guard", "lane": "runtime", "col": 1, "type": "security", "label": "Domain Guard", "sublabel": "in-domain only", "width": 138 },
+    { "id": "hook", "lane": "runtime", "col": 2, "type": "backend", "label": "RAG Hook", "sublabel": "withRagAugment()", "width": 138 },
+    { "id": "augment", "lane": "runtime", "col": 4, "type": "backend", "label": "Augmented Prompt", "sublabel": "question + [Source] context", "width": 138 },
+    { "id": "search", "lane": "retrieval", "col": 3, "type": "messagebus", "label": "Retrieve Top-5", "sublabel": "scored keyword match", "tag": "retrieveChunks()", "width": 138 },
+    { "id": "plain", "lane": "fallback", "col": 3, "type": "messagebus", "label": "Pass-through", "sublabel": "no chunks → plain ask", "width": 138 },
+    { "id": "llm", "lane": "runtime", "col": 5, "type": "cloud", "label": "LLM Answer", "sublabel": "local / Groq / Gemini", "width": 138 },
+    { "id": "reply", "lane": "retrieval", "col": 5, "type": "frontend", "label": "Answer + Sources", "sublabel": "shown in chat card", "width": 138 }
+  ],
+  "edges": [
+    { "from": "upload", "to": "parse", "label": "ingest" },
+    { "from": "parse", "to": "chunk" },
+    { "from": "chunk", "to": "store", "label": "save", "variant": "emphasis" },
+    { "from": "user", "to": "guard" },
+    { "from": "guard", "to": "hook", "label": "allowed" },
+    { "from": "hook", "to": "search", "label": "query", "variant": "emphasis", "route": "drop" },
+    { "from": "store", "to": "search", "label": "KB read", "variant": "dashed" },
+    { "from": "search", "to": "augment", "label": "top-5 chunks", "variant": "emphasis", "route": "drop" },
+    { "from": "search", "to": "plain", "label": "0 hits", "variant": "security", "role": "error" },
+    { "from": "plain", "to": "llm", "variant": "dashed", "role": "return", "route": "outside-right" },
+    { "from": "augment", "to": "llm", "label": "with context" },
+    { "from": "llm", "to": "reply", "label": "cited", "variant": "emphasis" }
+  ],
+  "cards": [
+    { "dot": "emerald", "title": "Why RAG?", "items": ["Bot answers only from YOUR uploaded documents", "No hallucinated prices or fake model specs", "Every reply shows which file it came from"] },
+    { "dot": "cyan", "title": "Ingestion", "items": ["One upload: 15 MB, 500 files max", "Text split into overlapping 500-char chunks", "Stored per bot in SQLite — no vector DB needed"] },
+    { "dot": "rose", "title": "Retrieval", "items": ["Top-5 scored chunks injected into the prompt", "No match → plain answer, never fake citations", "Memory recall endpoint adds long-term context"] }
+  ]
+}
