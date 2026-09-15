@@ -41,6 +41,14 @@ function mapBotToFrontend(b) {
     provider: b.provider ?? 'auto',
     flow: b.flow ?? null,
     slots: b.slots ?? null,
+    teamMode: b.teamMode === true,
+    repoUrl: b.repoUrl ?? null,
+    repoName: b.repoName ?? null,
+    deployUrl: b.deployUrl ?? null,
+    deployStatus: b.deployStatus ?? null,
+    renderServiceId: b.renderServiceId ?? null,
+    shippedAt: ms(b.shippedAt),
+    shipStage: b.shipStage ?? null, // ship pipeline progress (no secrets in the API)
   };
 }
 
@@ -217,6 +225,48 @@ const deleteBot = async (id, orgId) => {
   return true;
 };
 
+// --- Repository: ship pipeline (export -> github -> render) -------------------
+
+const SHIP_FIELDS = ['repoUrl', 'repoName', 'deployUrl', 'deployStatus', 'renderServiceId', 'shippedAt', 'llmApiKey', 'shipStage'];
+
+/** Patch only whitelisted ship columns on an org-scoped bot. */
+const updateBotShip = async (id, orgId, data) => {
+  const exists = await prisma.bot.count({ where: { id, orgId } });
+  if (!exists) return false;
+  const patch = Object.fromEntries(Object.entries(data).filter(([k]) => SHIP_FIELDS.includes(k)));
+  await prisma.bot.update({ where: { id }, data: patch });
+  return true;
+};
+
+/** Queue lookup: full bot rows (incl. the private per-bot Gemini key). */
+const getBotsByIds = async (ids, orgId) =>
+  prisma.bot.findMany({ where: { id: { in: ids }, orgId } });
+
+/** Bots whose ship stage says a queue run was in flight (server-restart resume). */
+const getResumableShipBots = async () =>
+  prisma.bot.findMany({
+    where: { shipStage: { in: ['queued', 'github', 'render', 'watch', 'delete', 'deleting', 'failed'] } },
+    select: { id: true, orgId: true, name: true, repoUrl: true, repoName: true, deployUrl: true, deployStatus: true, renderServiceId: true, llmApiKey: true, shipStage: true },
+  });
+
+const getBotShipState = async (id, orgId) => {
+  const bot = await prisma.bot.findFirst({
+    where: { id, orgId },
+    select: { repoUrl: true, repoName: true, deployUrl: true, deployStatus: true, renderServiceId: true, shippedAt: true, llmApiKey: true, shipStage: true },
+  });
+  return bot || null;
+};
+
+const clearBotShip = async (id, orgId) => {
+  const exists = await prisma.bot.count({ where: { id, orgId } });
+  if (!exists) return false;
+  await prisma.bot.update({
+    where: { id },
+    data: { repoUrl: null, repoName: null, deployUrl: null, deployStatus: null, renderServiceId: null, shippedAt: null, shipStage: null },
+  });
+  return true;
+};
+
 export default {
   getBots,
   getBot,
@@ -236,4 +286,10 @@ export default {
   deleteMessage,
 
   deleteBot,
+
+  updateBotShip,
+  getBotsByIds,
+  getResumableShipBots,
+  getBotShipState,
+  clearBotShip,
 };

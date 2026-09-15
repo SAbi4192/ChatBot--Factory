@@ -58,6 +58,14 @@ export interface Bot {
   updatedAt?: number;
   conversationCount?: number;
   creationMethod?: 'factory' | 'custom' | 'template';
+  teamMode?: boolean; // orchestrator: routes messages to specialist bots (Checkpoint 11)
+  // Ship pipeline (Export -> GitHub -> Render)
+  repoUrl?: string | null;
+  repoName?: string | null;
+  deployUrl?: string | null;
+  deployStatus?: 'idle' | 'queued' | 'building' | 'live' | 'deploy_failed' | 'suspended' | null;
+  shipStage?: 'queued' | 'github' | 'render' | 'watch' | 'done' | 'failed' | null;
+  shippedAt?: number | null;
 }
 
 export interface Conversation {

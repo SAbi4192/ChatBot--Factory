@@ -247,6 +247,7 @@
 .p-web   svg { color: #f5b13d; }
 .p-guard svg { color: #f0664f; }
 .p-profile svg { color: #a78bfa; }
+.p-team svg { color: #22c55e; }
 .cv-regen {
   display: inline-flex; align-items: center; gap: 0.35rem;
   font-size: 0.75rem; color: var(--c-muted);
@@ -322,6 +323,21 @@
 }
 .cv-attach-btn:hover { border-color: var(--c-primary); color: var(--c-primary); }
 .cv-attach-btn svg { width: 16px; height: 16px; }
+.cv-team-btn {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--c-primary);
+  background: color-mix(in srgb, var(--c-primary) 18%, transparent);
+  color: var(--c-primary);
+  transition: all 0.15s;
+}
+.cv-team-btn:hover { background: color-mix(in srgb, var(--c-primary) 30%, transparent); }
+.cv-team-btn.is-off { opacity: 0.5; border-style: dashed; background: transparent; }
+.cv-team-btn svg { width: 16px; height: 16px; }
 .cv-input {
   flex: 1; resize: none; border: none; outline: none; background: transparent;
   color: var(--c-text); font-size: 0.95rem; line-height: 1.5;

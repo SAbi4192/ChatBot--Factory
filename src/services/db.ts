@@ -172,12 +172,13 @@ export const db = {
   async sendMessage(
     botId: string,
     conversationId: string,
-    message: string
+    message: string,
+    direct = false
   ): Promise<{ response: string; messageId: string; provider?: string; sources?: string[] | null }> {
     return json('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ botId, conversationId, message })
+      body: JSON.stringify({ botId, conversationId, message, direct })
     });
   },
 
@@ -312,12 +313,13 @@ export const db = {
     botId: string,
     conversationId: string,
     message: string,
-    onToken: (token: string) => void
+    onToken: (token: string) => void,
+    direct = false
   ): Promise<{ messageId: string; provider: string; sources?: string[] | null; streamed: boolean }> {
     const res = await authFetch('/api/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ botId, conversationId, message }),
+      body: JSON.stringify({ botId, conversationId, message, direct }),
     });
     if (!res.ok || !res.body) {
       const err = await res.json().catch(() => ({}));
@@ -585,6 +587,84 @@ export const db = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, lang })
     });
+  },
+
+  // ---- Ship pipeline: export -> GitHub -> Render ----
+  async shipDownloadZip(botId: string): Promise<void> {
+    const res = await authFetch(`/api/bots/export/${botId}/zip`);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error || `ZIP export failed (${res.status})`);
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('content-disposition') || '';
+    const m = cd.match(/filename="?([^";]+)"?/);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = m ? m[1] : `${botId}.zip`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  async shipGithub(botId: string): Promise<{ success: boolean; repoUrl: string }> {
+    return json(`/api/bots/ship/github/${botId}`, { method: 'POST' });
+  },
+
+  async shipRender(botId: string): Promise<{ success: boolean; deployUrl: string; deployStatus: string; reused: boolean }> {
+    return json(`/api/bots/ship/render/${botId}`, { method: 'POST' });
+  },
+
+  async shipStatus(botId: string): Promise<{ deployStatus: string | null; deployUrl: string | null }> {
+    return json(`/api/bots/ship/status/${botId}`);
+  },
+
+  async shipSleep(botId: string): Promise<{ success: boolean; deferred?: boolean; waitMin?: number }> {
+    return json(`/api/bots/ship/sleep/${botId}`, { method: 'POST' });
+  },
+
+  async shipStatusBatch(botIds: string[]): Promise<Record<string, { deployStatus: string | null; deployUrl: string | null; renderGone?: boolean }>> {
+    return json(`/api/bots/ship/status-batch?ids=${botIds.join(',')}`);
+  },
+
+  /* ---- ship queue: background pipeline (server paces GitHub/Render, zero error popups) ---- */
+  async shipQueueEnqueue(botKeys: Record<string, string>, mode: 'github' | 'github+render' = 'github+render'): Promise<{
+    success: boolean; accepted: number; skipped: number; notFound: string[];
+  }> {
+    return json('/api/bots/ship/queue', { method: 'POST', body: JSON.stringify({ botIds: botKeys, mode }) });
+  },
+
+  async shipQueueStatus(): Promise<{
+    total: number; working: number; waiting: number; done: number; failed: number;
+    jobs: { botId: string; name: string; stage: string; status: string; message: string; updatedAt: number }[];
+  }> {
+    return json('/api/bots/ship/queue');
+  },
+
+  async shipQueueDrop(botId: string): Promise<{ success: boolean }> {
+    return json(`/api/bots/ship/queue/${botId}`, { method: 'DELETE' });
+  },
+
+  async shipUnpublishQueue(botIds: string[]): Promise<{ success: boolean; accepted: number; notFound: string[] }> {
+    return json('/api/bots/ship/unpublish-queue', { method: 'POST', body: JSON.stringify({ botIds }) });
+  },
+
+  async shipUnpublish(botId: string): Promise<{
+    success: boolean;
+    github: { ok: boolean; error: string | null };
+    render: { ok: boolean; error: string | null };
+  }> {
+    return json(`/api/bots/ship/unpublish/${botId}`, { method: 'POST' });
+  },
+
+  async shipWake(botId: string): Promise<{ awake: boolean }> {
+    return json(`/api/bots/ship/wake/${botId}`, { method: 'POST' });
+  },
+
+  async shipReset(botId: string): Promise<{ success: boolean }> {
+    return json(`/api/bots/ship/${botId}`, { method: 'DELETE' });
   },
 };
 

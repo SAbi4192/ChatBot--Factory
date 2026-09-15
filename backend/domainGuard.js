@@ -400,17 +400,53 @@ export async function checkDomainRelevance(bot, userMessage, history = []) {
     };
   }
 
+  const historyText = history.slice(-4).map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+
   // ---- Layer 3: context-aware follow-up ("and the newest one?") ----
-  if (history.length > 0 && (isTemporal || looksFollowUp)) {
+  // Tightened: a short question alone does NOT make it a follow-up anymore —
+  // "What is RAG?" (3 words) used to skip the guard that way. Now Layer 3 only
+  // passes when the message carries a REAL follow-up signal ("which one",
+  // "what about", "the first...") or a temporal word, AND has no vocabulary
+  // from another field. Pure-short questions fall through to the classifier.
+  const hasFollowUpSignal = FOLLOWUP_HINTS.some(h => matches(text, h)) || isTemporal;
+  // Tiny ellipsis follow-ups ("price?", "mileage?", "service cost?") carry the
+  // topic of the conversation — allow ONLY when recent messages were already in
+  // this field and the fragment itself has no other-field vocabulary.
+  const carryOver = wordCount <= 3 && hits(historyText || '', own).length >= 1;
+  if (history.length > 0 && (hasFollowUpSignal || carryOver) && !foreignHits.length) {
     return {
       relevant: true, confidence: 0.8, layer: 3, result: 'IN_DOMAIN',
       reason: 'Follow-up to the current conversation', ownHits, foreignHits
     };
   }
 
-  // ---- Layer 4: strict YES/NO classifier ----
-  const historyText = history.slice(-4).map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n');
+  // ---- Layer 3.5: self-contained "What is X?" questions ----
+  // Short does NOT mean dependent. "What is RAG?" / "Explain transformers"
+  // define themselves — they must pass the domain test like any first message,
+  // no matter what the chat history says.
+  const SELF_CONTAINED = [
+    /^(what|whats|what is|what are|whats the)\b/,
+    /^(define|explain|describe|tell me about|introduce)\b/,
+    /^(how|why) (do|does|is|are|can|to|you)\b/,
+    // request verbs: "tell me a joke", "write python code" etc are NEW tasks, not follow-ups
+    /^(tell|say|give|write|make|create|compose|translate|solve|code|program|draw|generate|recommend)\b/,
+  ];
+  const isSelfContained = SELF_CONTAINED.some(rx => rx.test(text));
+  if (isSelfContained) {
+    const cls = await classifyLocal(profile, userMessage, historyText);
+    if (cls && (cls.includes('YES') || cls.includes('NO'))) {
+      const ok = cls.includes('YES');
+      return {
+        relevant: ok, confidence: 0.8, layer: 3.5,
+        result: ok ? 'IN_DOMAIN' : 'OUT_OF_DOMAIN',
+        reason: ok ? 'Self-contained question classified in domain'
+                   : 'Self-contained question about another field',
+        ownHits, foreignHits
+      };
+    }
+  }
 
+  // ---- Layer 4: strict YES/NO classifier ----
   try {
     const ans = await classifyLocal(profile, userMessage, historyText);
     if (ans.includes('YES')) return { relevant: true,  confidence: 0.8, layer: 4, result: 'IN_DOMAIN',     reason: 'Local classifier: YES' };

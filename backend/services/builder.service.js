@@ -53,7 +53,7 @@ export async function updateBot(botId, orgId, patch, actorId) {
   const data = {};
   for (const key of ['name', 'description', 'personality', 'personalityTraits', 'systemPrompt',
     'welcomeMessage', 'starterQuestions', 'domainProfile', 'designDna', 'avatar',
-    'guardStrictness', 'memoryEnabled', 'provider', 'flow', 'slots']) {
+    'guardStrictness', 'memoryEnabled', 'provider', 'flow', 'slots', 'teamMode']) {
     if (patch[key] !== undefined) data[key] = patch[key];
   }
 

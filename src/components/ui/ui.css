@@ -255,6 +255,24 @@
   margin-bottom: 1rem;
 }
 .ui-confirm-icon svg { width: 22px; height: 22px; }
+.ui-confirm-items {
+  margin: 0.9rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.35rem;
+}
+.ui-confirm-items li {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--fg);
+  background: var(--surface, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--error);
+  border-radius: 8px;
+  padding: 0.45rem 0.6rem;
+  overflow-wrap: anywhere;
+}
 
 /* ---- Empty state ---- */
 .ui-empty {

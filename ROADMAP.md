@@ -152,3 +152,12 @@
 - KB management page: document list with processing/ready/failed status, chunk counts, delete
 - URL crawling: paste URL → fetch → strip HTML → index
 - Long-term memory: cross-conversation recall, "what does this bot remember?" panel, per-bot toggle
+
+## Checkpoint 11 — Team Mode (orchestrator routing) ✅ DONE (2026-09-05)
+
+- Bot-level `teamMode` toggle (Bot Editor → Behavior): orchestrator routes each message to the best specialist bot in the org
+- Two-stage router: lexical scoring (domain lexicon + topics + intents, zero cost) → Groq shortlist pick when ambiguous; small talk/meta stays with the orchestrator
+- Specialist answers in its own voice — its Domain Guard, tools, slot/flow engines and RAG all apply; messages persist exactly once
+- Replies tagged `team:<Specialist>` → green Team badge with specialist name in chat UI; composer Teams button pauses routing per session
+- `team.route` analytics events (specialist, mode, score) for org-level usage insights
+- Tests: tests/verify_team.mjs (28 offline assertions), tests/e2e_team.mjs (17 live-API assertions) — all passing; vitest 54/54, domain guard 211/211, tsc + vite build clean

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import type { Bot } from '../types';
 import { db } from '../services/db';
-import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Factory, ArrowRight, Bot as BotIcon, Wand2, Pencil } from 'lucide-react';
+import { Search, Shuffle, Play, MessageSquare, Star, Trash2, Factory, ArrowRight, Bot as BotIcon, Wand2, Pencil, Rocket } from 'lucide-react';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { Button } from '../components/ui/Button';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -247,6 +247,11 @@ export default function LibraryView() {
                         <Wand2 /> Custom
                       </span>
                     )}
+                    {bot.deployStatus === 'live' && (
+                      <a className="bot-provenance mono" href={bot.deployUrl || '#'} target="_blank" rel="noreferrer" title={bot.deployUrl || ''} style={{ textDecoration: 'none' }}>
+                        <Rocket /> Live
+                      </a>
+                    )}
                     <p className="bot-desc">{bot.description}</p>
 
                     {/* hover preview */}
@@ -278,6 +283,9 @@ export default function LibraryView() {
                       </button>
                       <button title="Edit" onClick={() => navigate(`/bot/${bot.id}/edit`)} aria-label={`Edit ${bot.name}`}>
                         <Pencil />
+                      </button>
+                      <button title="Ship (export / GitHub / Render)" onClick={() => navigate(`/ship?bot=${bot.id}`)} aria-label={`Ship ${bot.name}`}>
+                        <Rocket />
                       </button>
                       <button title="Delete" onClick={() => setConfirmDelete(bot)} aria-label={`Delete ${bot.name}`}>
                         <Trash2 />

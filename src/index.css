@@ -286,6 +286,22 @@ svg { display: block; flex: none; }
     radial-gradient(900px 700px at 100% 100%, rgba(70, 90, 120, 0.10), transparent 55%);
 }
 
+/* ---- Global ember canvas (the foundry air, every route) ---- */
+.global-embers {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .global-embers { display: none; }
+}
+
+[data-theme="light"] .global-embers { opacity: 0.9; }
+
 /* ---- Glass card (the standard premium surface) ---- */
 .glass-card {
   background: var(--glass);

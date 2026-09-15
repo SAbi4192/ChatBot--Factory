@@ -29,6 +29,7 @@ import moderationRoutes from './routes/moderation.routes.js';
 import publicRoutes from './routes/public.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import shipRoutes from './routes/ship.routes.js';
 
 /** Build the Express app (no listen — importable for tests). */
 export function createApp() {
@@ -122,6 +123,7 @@ export function createApp() {
   app.use('/api/analytics', requireAuth, analyticsRoutes);
   app.use('/api/moderation', requireAuth, moderationRoutes);
   app.use('/api/chat', requireAuth, chatRoutes);
+  app.use('/api/bots', requireAuth, shipRoutes);
 
   // --- Static frontend (production) -------------------------------------------
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

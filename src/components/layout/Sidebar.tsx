@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, Bot, BarChart3, LayoutTemplate,
   PanelLeftClose, PanelLeftOpen, Factory as LogoIcon, Sparkles,
-  ChevronsUpDown, User as UserIcon, LogOut, Building2, Check, Search as SearchIcon, ShieldAlert, UserRound,
+  ChevronsUpDown, User as UserIcon, LogOut, Building2, Check, Search as SearchIcon, ShieldAlert, UserRound, Rocket,
 } from 'lucide-react';
 import { useAuth } from '../../auth/AuthContext';
 
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/factory', label: 'Create Bot', icon: Sparkles },
   { to: '/library', label: 'Library', icon: Bot },
+  { to: '/ship', label: 'Ship', icon: Rocket },
 ];
 
 const NAV_UPCOMING = [

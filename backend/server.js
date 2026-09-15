@@ -47,5 +47,9 @@ bootstrapIfNeeded()
     server = app.listen(PORT, () => {
       console.log(`\n🏭  Universal Chatbot Factory backend running on http://localhost:${PORT}`);
       console.log(`    AI mode: ${process.env.AI_PROVIDER || 'auto'}`);
+      // Ship queue: finish anything that was mid-flight when the server died.
+      import('./services/shipQueue.service.js')
+        .then((m) => m.resumePersistedQueues())
+        .catch((e) => console.warn('[ship-queue] resume skipped:', e.message));
     });
   });

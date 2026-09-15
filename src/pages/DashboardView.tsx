@@ -191,37 +191,16 @@ export default function DashboardView() {
         />
       </div>
 
-      {/* Workspace quota strip */}
+      {/* Workspace overview */}
       {orgInfo && currentOrg && (
         <Card style={{ marginBottom: '1.8rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.9rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
             <Building2 style={{ width: 16, height: 16, color: 'var(--accent)' }} />
             <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>{currentOrg.name}</span>
             <Badge tone="accent">{currentOrg.role}</Badge>
-            <span style={{ marginLeft: 'auto', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--fg-faint)' }}>
-              plan · {orgInfo.plan}
+            <span className="mono" style={{ marginLeft: 'auto', fontSize: '0.74rem', color: 'var(--fg-faint)' }}>
+              {orgInfo.usage.bots.toLocaleString()} bots · {orgInfo.usage.members} members · {orgInfo.usage.messagesToday.toLocaleString()} chats today
             </span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-            {[
-              { label: 'Bots', used: orgInfo.usage.bots, max: orgInfo.limits.maxBots },
-              { label: 'Messages today', used: orgInfo.usage.messagesToday, max: orgInfo.limits.maxMessagesPerDay },
-              { label: 'Members', used: orgInfo.usage.members, max: orgInfo.limits.maxMembers },
-            ].map((q) => {
-              const pct = q.max > 0 ? Math.round((q.used / q.max) * 100) : 0;
-              const cls = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : 'ok';
-              return (
-                <div key={q.label}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', marginBottom: '0.35rem' }}>
-                    <span style={{ color: 'var(--fg-dim)' }}>{q.label}</span>
-                    <span className="mono" style={{ color: 'var(--fg-faint)' }}>{q.used.toLocaleString()}/{q.max.toLocaleString()}</span>
-                  </div>
-                  <div className="qm-bar">
-                    <div className={`qm-fill ${cls}`} style={{ width: `${Math.min(100, pct)}%` }} />
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </Card>
       )}

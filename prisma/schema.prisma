@@ -49,6 +49,17 @@ model Bot {
   provider          String? // per-bot model selection (Checkpoint 9)
   flow              Json?
   slots             Json?
+  teamMode          Boolean @default(false) @map("team_mode") // orchestrator routes to other bots (Checkpoint 11)
+
+  // Ship pipeline (Export -> GitHub -> Render)
+  repoUrl         String?   @map("repo_url")
+  repoName        String?   @map("repo_name") // "owner/repo" — lets re-ship update in place
+  deployUrl       String?   @map("deploy_url")
+  deployStatus    String?   @map("deploy_status") // null|queued|building|live|deploy_failed|suspended
+  renderServiceId String?   @map("render_service_id")
+  shippedAt       DateTime? @map("shipped_at")
+  llmApiKey       String?   @map("llm_api_key") // user's Gemini key for THIS bot (never pushed to the repo)
+  shipStage       String?   @map("ship_stage") // null|queued|exporting|pushing|creating|deploying|done|failed — queue progress for the UI
 
   org              Organization?   @relation(fields: [orgId], references: [id], onDelete: SetNull)
   conversations    Conversation[]

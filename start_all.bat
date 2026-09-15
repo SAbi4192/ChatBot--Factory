@@ -1,4 +1,6 @@
 @echo off
+REM --- Portable Node.js (installed at D:\kilonode; also added to User PATH) ---
+set "PATH=D:\kilonode\node-v22.23.2-win-x64;%PATH%"
 title Universal Chatbot Factory - Launcher
 color 0E
 echo ================================================================

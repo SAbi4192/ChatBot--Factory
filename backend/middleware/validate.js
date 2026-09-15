@@ -20,6 +20,7 @@ export const schemas = {
     botId: shortId,
     conversationId: shortId,
     message: z.string().trim().min(1).max(8000),
+    direct: z.boolean().optional(), // skip orchestrator routing for this message (Team Mode pause)
   }),
 
   regenerate: z.object({
@@ -143,6 +144,7 @@ export const schemas = {
     provider: z.enum(['auto', 'local', 'groq', 'gemini']).optional(),
     slots: z.array(z.record(z.any())).max(12).optional(),
     flow: z.record(z.any()).nullable().optional(),
+    teamMode: z.boolean().optional(),
   }),
 
   saveFlow: z.object({

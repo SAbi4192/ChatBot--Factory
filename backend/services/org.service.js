@@ -1,13 +1,14 @@
 /**
- * Organization service — workspaces, members, invite links, activity log,
- * and usage-quota enforcement (soft warning at 80%, hard block at 100%).
+ * Organization service — workspaces, members, invite links, activity log.
+ * No quota gates: every workspace gets full freedom.
  */
 import { prisma } from '../prisma.js';
 import { ApiError } from '../middleware/errorHandler.js';
 import { logActivity, listActivity } from './audit.service.js';
 
 const uid = () => Math.random().toString(36).substring(2, 11);
-const DEFAULT_LIMITS = { maxBots: 200, maxMessagesPerDay: 500, maxMembers: 10 };
+// Effectively unlimited — kept only so the DB columns stay meaningful.
+const DEFAULT_LIMITS = { maxBots: 999999, maxMessagesPerDay: 999999, maxMembers: 999999 };
 
 function toOrgDto(org, { memberCount, botCount, messagesToday } = {}) {
   return {
@@ -136,11 +137,6 @@ export async function createInvite(orgId, actorUserId, { role = 'viewer' }) {
   const org = await prisma.organization.findUnique({ where: { id: orgId } });
   if (!org) throw new ApiError(404, 'Organization not found');
 
-  const memberCount = await prisma.orgMember.count({ where: { orgId } });
-  if (memberCount >= org.maxMembers) {
-    throw new ApiError(429, `Member limit reached (${memberCount}/${org.maxMembers})`);
-  }
-
   const code = Array.from({ length: 8 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
   const invite = await prisma.invite.create({
     data: {
@@ -175,12 +171,6 @@ export async function joinWithInvite(userId, { code }) {
     where: { orgId_userId: { orgId: invite.orgId, userId } },
   });
   if (existing) throw new ApiError(409, 'You are already a member of this organization');
-
-  const memberCount = await prisma.orgMember.count({ where: { orgId: invite.orgId } });
-  const org = await prisma.organization.findUnique({ where: { id: invite.orgId } });
-  if (memberCount >= org.maxMembers) {
-    throw new ApiError(429, `Member limit reached (${memberCount}/${org.maxMembers})`);
-  }
 
   await prisma.$transaction([
     prisma.orgMember.create({
@@ -221,19 +211,8 @@ export async function setMemberRole(orgId, targetUserId, role) {
 export async function checkBotQuota(orgId, additional = 0) {
   const org = await prisma.organization.findUnique({ where: { id: orgId } });
   const bots = await prisma.bot.count({ where: { orgId } });
-  const projected = bots + additional;
-  if (projected > org.maxBots) {
-    return {
-      ok: false,
-      usage: { bots, maxBots: org.maxBots },
-      message: `Bot quota exceeded — ${bots}/${org.maxBots}. Raise the limit in org settings or delete bots first.`,
-    };
-  }
-  return {
-    ok: true,
-    warn: bots >= org.maxBots * 0.8,
-    usage: { bots, maxBots: org.maxBots },
-  };
+  // No cap: every workspace gets full freedom.
+  return { ok: true, warn: false, usage: { bots, maxBots: org.maxBots } };
 }
 
 /** Quota check for chat messages (per-day per-org). */
@@ -243,18 +222,8 @@ export async function checkMessageQuota(orgId) {
   const messagesToday = await prisma.message.count({
     where: { createdAt: { gte: today }, conversation: { bot: { orgId } } },
   });
-  if (messagesToday >= org.maxMessagesPerDay) {
-    return {
-      ok: false,
-      usage: { messagesToday, maxMessagesPerDay: org.maxMessagesPerDay },
-      message: `Daily message limit reached (${messagesToday}/${org.maxMessagesPerDay}). Try again tomorrow.`,
-    };
-  }
-  return {
-    ok: true,
-    warn: messagesToday >= org.maxMessagesPerDay * 0.8,
-    usage: { messagesToday, maxMessagesPerDay: org.maxMessagesPerDay },
-  };
+  // No daily cap: chat freely, always.
+  return { ok: true, warn: false, usage: { messagesToday, maxMessagesPerDay: org.maxMessagesPerDay } };
 }
 
 /** Org activity feed. */

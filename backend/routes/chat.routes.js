@@ -16,8 +16,8 @@ const router = Router();
 
 router.post('/', aiLimiter, validate(schemas.chat), async (req, res, next) => {
   try {
-    const { botId, conversationId, message } = req.body;
-    const response = await chatService.chat(botId, conversationId, message, req.org.id);
+    const { botId, conversationId, message, direct } = req.body;
+    const response = await chatService.chat(botId, conversationId, message, req.org.id, direct === true);
     res.json(response);
   } catch (e) { next(e); }
 });
@@ -33,7 +33,7 @@ router.post('/regenerate', aiLimiter, validate(schemas.regenerate), async (req, 
 // SSE streaming — token-by-token responses. Emits JSON events:
 //   data: { token } | { done } | { error }
 router.post('/stream', aiLimiter, validate(schemas.chat), async (req, res, next) => {
-  const { botId, conversationId, message } = req.body;
+  const { botId, conversationId, message, direct } = req.body;
 
   // Org checks first (same as the non-streaming path).
   try {
@@ -50,7 +50,7 @@ router.post('/stream', aiLimiter, validate(schemas.chat), async (req, res, next)
   const send = (obj) => res.write(`data: ${JSON.stringify(obj)}\n\n`);
 
   try {
-    const result = await streamChatResponse(botId, conversationId, message, (token) => send({ token }));
+    const result = await streamChatResponse(botId, conversationId, message, (token) => send({ token }), { direct: direct === true });
     send({ done: true, messageId: result.messageId, provider: result.provider, sources: result.sources, streamed: result.streamed });
   } catch (e) {
     send({ error: e.message });

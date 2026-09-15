@@ -37,7 +37,18 @@ export function errorHandler(err, req, res, next) {
   const status = Number.isInteger(err.status) ? err.status : 500;
   if (status >= 500) {
     console.error('[server error]', err);
+    // Intentional 5xx (ApiError with a curated message: missing config,
+    // upstream rate limits) are safe to show; unknown crashes stay masked.
+    if (err instanceof ApiError && err.message) return res.status(status).json({ error: err.message });
     return res.status(status).json({ error: 'Internal server error' });
   }
   res.status(status).json({ error: err.message });
 }
+
+/**
+ * Wrap an async route handler: any rejection lands in errorHandler with the
+ * right status. Express 5 does this natively, but routes written against the
+ * older contract stay crash-proof through this wrapper.
+ */
+export const asyncHandler = (fn) => (req, res, next) =>
+  Promise.resolve(fn(req, res, next)).catch(next);

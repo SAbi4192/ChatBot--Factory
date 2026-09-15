@@ -32,17 +32,16 @@ async function withRag(botId, userMessage) {
 }
 
 /** Send a user message through the hybrid router and persist the exchange. */
-export async function chat(botId, conversationId, message, orgId) {
+export async function chat(botId, conversationId, message, orgId, direct = false) {
   if (!(await db.botInOrg(botId, orgId))) throw new ApiError(404, 'Bot not found');
   if (!(await db.conversationInOrg(conversationId, orgId))) {
     throw new ApiError(404, 'Conversation not found');
   }
   const quota = await checkMessageQuota(orgId);
-  if (!quota.ok) throw new ApiError(429, quota.message);
 
   // RAG: augment the message with KB context before the AI call.
   const { augmented, sources } = await withRag(botId, message);
-  const response = await generateChatResponse(botId, conversationId, augmented);
+  const response = await generateChatResponse(botId, conversationId, augmented, { direct });
   return { ...response, sources: response.sources?.length ? response.sources : sources, quota: quota.usage };
 }
 
@@ -53,7 +52,6 @@ export async function regenerate(botId, conversationId, orgId) {
     throw new ApiError(404, 'Conversation not found');
   }
   const quota = await checkMessageQuota(orgId);
-  if (!quota.ok) throw new ApiError(429, quota.message);
 
   const response = await regenerateChatResponse(botId, conversationId);
   return { ...response, quota: quota.usage };

@@ -1,0 +1,855 @@
+/* ============================================================
+   AURORA FOUNDRY — THEME v2  (loaded LAST: overrides ui.css)
+   Direction: motion-site glow · glass depth · gradient light
+   Amber stays the brand heart; everything gets cinematic light.
+   ============================================================ */
+
+:root {
+  /* Type — Outfit as display face (already loaded in index.html) */
+  --font-display: 'Outfit', 'Archivo', system-ui, sans-serif;
+
+  /* Deep-space surfaces — cooler, more cinematic than v1 */
+  --bg-primary:   #07090E;
+  --bg-secondary: #0E1118;
+  --bg-tertiary:  #151926;
+  --bg-quaternary: #1D2233;
+
+  /* Aurora companions — used in gradients alongside amber */
+  --aurora-violet: #8B7CF6;
+  --aurora-cyan:   #38BDF8;
+  --grad-aurora: linear-gradient(120deg, var(--accent), #FF8A5C 45%, var(--aurora-violet) 110%);
+  --grad-text:   linear-gradient(100deg, var(--accent) 10%, #FFD9A0 45%, var(--aurora-violet) 95%);
+
+  --radius: 14px;
+  --radius-lg: 20px;
+}
+
+[data-theme='light'] {
+  --grad-text: linear-gradient(100deg, #B4700A 10%, var(--accent) 45%, #6D5BD0 95%);
+}
+
+/* ---------------- cinematic app background ---------------- */
+.app-content {
+  background-size: 44px 44px !important;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.016) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.016) 1px, transparent 1px) !important;
+}
+.app-content::before {
+  background:
+    radial-gradient(1200px 640px at 18% -12%, rgba(245, 177, 61, 0.09), transparent 58%),
+    radial-gradient(1000px 700px at 108% 20%, rgba(139, 124, 246, 0.08), transparent 55%),
+    radial-gradient(900px 800px at 50% 118%, rgba(56, 189, 248, 0.06), transparent 60%) !important;
+  animation: auroraDrift 22s ease-in-out infinite alternate;
+}
+[data-theme='light'] .app-content::before { animation: none; }
+@keyframes auroraDrift {
+  from { opacity: 0.85; transform: translate3d(0, 0, 0) scale(1); }
+  to   { opacity: 1;    transform: translate3d(-36px, 26px, 0) scale(1.07); }
+}
+
+/* ---------------- glass cards with gradient edge ---------------- */
+.ui-card,
+.ui-stat {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0) 42%),
+    var(--bg-secondary);
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+  transition: transform 0.22s var(--ease), border-color 0.22s, box-shadow 0.3s var(--ease);
+}
+.ui-card::after,
+.ui-stat::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 8%; right: 8%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 177, 61, 0.42), rgba(139, 124, 246, 0.28), transparent);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.ui-card:hover,
+.dash-stats-grid .ui-stat:hover {
+  transform: translateY(-4px);
+  border-color: rgba(245, 177, 61, 0.28);
+  box-shadow: var(--shadow-lg), 0 0 42px rgba(245, 177, 61, 0.07);
+}
+.ui-card--hover:hover { border-color: rgba(245, 177, 61, 0.28); }
+
+/* big stat numbers get gradient light */
+.ui-stat-value {
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-size: 2.1rem;
+}
+
+/* ---------------- buttons: gradient primary, springy press ---------------- */
+.btn-primary,
+.ui-btn--primary {
+  background: var(--grad-aurora) !important;
+  background-size: 160% 160% !important;
+  color: #1A0E04 !important;
+  border: none !important;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  box-shadow: 0 10px 28px -10px rgba(245, 177, 61, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  transition: transform 0.16s var(--ease), box-shadow 0.22s, background-position 0.4s !important;
+}
+.btn-primary:hover:not(:disabled),
+.ui-btn--primary:hover:not(:disabled) {
+  background-position: 90% 50% !important;
+  transform: translateY(-1.5px);
+  box-shadow: 0 14px 34px -10px rgba(245, 177, 61, 0.65), 0 0 24px rgba(245, 177, 61, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+}
+.btn-primary:active:not(:disabled),
+.ui-btn--primary:active:not(:disabled) { transform: translateY(0.5px) scale(0.985); }
+
+.ui-btn {
+  border-radius: 11px;
+  transition: transform 0.16s var(--ease), background 0.18s, border-color 0.18s, box-shadow 0.18s, color 0.18s !important;
+}
+.ui-btn:not(.ui-btn--primary):not(.ui-btn--danger):not(.ui-btn--ghost):hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(245, 177, 61, 0.3);
+  box-shadow: var(--shadow-sm);
+}
+.ui-btn:active:not(:disabled) { transform: translateY(0.5px) scale(0.985); }
+
+/* ghost + danger get a touch more life */
+.ui-btn--ghost:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: rgba(245, 177, 61, 0.3);
+  background: var(--accent-subtle);
+}
+.ui-btn--danger { border-radius: 11px; }
+
+/* ---------------- inputs: focus ring with aurora ---------------- */
+.ui-input:focus,
+.cbc-desc:focus {
+  border-color: rgba(245, 177, 61, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(245, 177, 61, 0.12), 0 0 24px rgba(245, 177, 61, 0.08) !important;
+}
+
+/* ---------------- badges: glass pills ---------------- */
+.ui-badge {
+  /* was backdrop-filter blur(6px) — dozens of blurred pills per list
+     forced constant GPU repaints; solid translucent fill looks the same */
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 999px;
+  padding: 0.26rem 0.68rem;
+}
+
+/* ---------------- sidebar: darker glass, glowing active pill ---------------- */
+.app-sidebar {
+  background: rgba(7, 9, 14, 0.88) !important;
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+[data-theme='light'] .app-sidebar {
+  background: rgba(250, 247, 242, 0.92) !important;
+}
+.app-side-logo .mark {
+  border-radius: 11px;
+  background: var(--grad-aurora);
+  color: #1A0E04 !important;
+  border: none;
+  box-shadow: 0 0 22px rgba(245, 177, 61, 0.4);
+}
+.app-side-link {
+  border-radius: 11px !important;
+  font-weight: 600 !important;
+  transition: background 0.18s, color 0.18s, transform 0.16s var(--ease) !important;
+}
+.app-side-link:hover { transform: translateX(2px); }
+.app-side-link.active {
+  background: linear-gradient(90deg, rgba(245, 177, 61, 0.14), rgba(139, 124, 246, 0.08)) !important;
+  border-radius: 11px;
+}
+.app-side-link.active::before {
+  width: 3px;
+  top: 18%; bottom: 18%;
+  background: var(--grad-aurora);
+  box-shadow: 0 0 14px rgba(245, 177, 61, 0.55);
+}
+
+/* ---------------- topbar ---------------- */
+.app-topbar {
+  background: rgba(7, 9, 14, 0.78) !important;
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+.app-topbar::after { opacity: 0.45; }
+.app-search-btn { border-radius: 999px; }
+
+/* ---------------- modals, drawers, palette: deeper glass ---------------- */
+.ui-modal {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0) 45%), var(--bg-secondary) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-xl), 0 0 90px rgba(245, 177, 61, 0.06) !important;
+}
+.ui-drawer { border-radius: 20px 0 0 20px; }
+.cmdk-dialog {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0) 45%), var(--bg-secondary) !important;
+  border-radius: var(--radius-lg) !important;
+}
+.cmdk-item[data-selected='true'] {
+  background: linear-gradient(90deg, rgba(245, 177, 61, 0.12), rgba(139, 124, 246, 0.07)) !important;
+  color: var(--fg) !important;
+}
+
+/* ---------------- scrollbars ---------------- */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(245, 177, 61, 0.22), rgba(139, 124, 246, 0.22));
+  border-radius: 8px;
+  border: 2px solid var(--bg-primary);
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(245, 177, 61, 0.38); }
+
+/* ---------------- dashboard hero: aurora upgrade ---------------- */
+.dash-hero { border-radius: var(--radius-lg) !important; }
+.dash-hero h1 {
+  letter-spacing: -0.03em !important;
+  font-weight: 900 !important;
+}
+.dash-hero-glow::after {
+  background: linear-gradient(120deg, rgba(245, 177, 61, 0.6), transparent 30%, transparent 62%, rgba(139, 124, 246, 0.5)) !important;
+}
+.dash-hero-orbit {
+  width: 340px;
+  height: 340px;
+  top: -120px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(139, 124, 246, 0.16), transparent 62%) !important;
+  animation: dashOrbit 7s ease-in-out infinite alternate;
+}
+
+/* ---------------- section titles ---------------- */
+.dash-section-title,
+.settings-card h3,
+.ui-modal-title {
+  letter-spacing: -0.015em;
+}
+
+/* ---------------- switches: gradient track ---------------- */
+.ui-switch[data-on='true'] { background: var(--grad-aurora); border-color: transparent; }
+
+/* ---------------- quota meters keep their gradients (already good) -------- */
+
+/* ---------------- avatars ---------------- */
+.ui-avatar {
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* ---------------- auth pages: keep glass, add aurora strength ---------------- */
+.auth-card { border-radius: var(--radius-lg) !important; }
+.auth-page::before {
+  background:
+    radial-gradient(900px 500px at 15% -10%, rgba(245, 177, 61, 0.13), transparent 58%),
+    radial-gradient(900px 600px at 110% 30%, rgba(139, 124, 246, 0.1), transparent 55%),
+    radial-gradient(800px 700px at 30% 115%, rgba(56, 189, 248, 0.07), transparent 58%) !important;
+}
+
+/* ---------------- mobile tabs ---------------- */
+.app-mobile-tabs { background: rgba(7, 9, 14, 0.94) !important; }
+[data-theme='light'] .app-mobile-tabs { background: rgba(250, 247, 242, 0.96) !important; }
+.app-mobile-tab.active { text-shadow: 0 0 14px rgba(245, 177, 61, 0.5); }
+
+/* ---------------- focus ring ---------------- */
+:focus-visible { outline-color: var(--accent); }
+
+/* ---------------- page enter: slightly springier ---------------- */
+.page-enter { animation: pageUp 0.45s cubic-bezier(0.18, 0.9, 0.28, 1.04) both; }
+
+/* ---------------- reduced motion: kill the show ---------------- */
+@media (prefers-reduced-motion: reduce) {
+  .app-content::before, .dash-hero-orbit { animation: none !important; }
+  .ui-card, .ui-stat, .ui-btn, .btn-primary, .app-side-link { transition: none !important; }
+}
+
+/* ============================================================
+   PAGE CINEMATICS — chat · factory · library · auth
+   ============================================================ */
+
+/* ---------------- CHAT VIEW ---------------- */
+.chat-wrapper { position: relative; }
+.chat-wrapper::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(900px 480px at 85% -10%, rgba(139, 124, 246, 0.07), transparent 60%),
+    radial-gradient(800px 500px at 0% 110%, rgba(245, 177, 61, 0.05), transparent 58%);
+}
+.chat-wrapper > * { position: relative; z-index: 1; }
+
+.cv-header {
+  background: rgba(7, 9, 14, 0.72) !important;
+  backdrop-filter: blur(18px) saturate(170%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(170%) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme='light'] .cv-header { background: rgba(250, 247, 242, 0.85) !important; }
+
+.cv-bubble {
+  border-radius: 16px !important;
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
+  animation: cvPop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+@keyframes cvPop {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+/* NOTE: user bubble colors come from each bot's Design DNA (--c-primary) —
+   never override them; only add light and motion around them. */
+.style-bubbles .cv-row.user .cv-bubble {
+  box-shadow: 0 4px 18px -4px rgba(0, 0, 0, 0.4) !important;
+}
+
+.cv-cursor {
+  background: var(--accent) !important;
+  box-shadow: 0 0 10px rgba(245, 177, 61, 0.8);
+  border-radius: 2px;
+}
+
+/* composer: floating glass bar */
+.cv-composer {
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+}
+.cv-composer-inner {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.005)), var(--bg-secondary) !important;
+  border-radius: 16px !important;
+  border-color: rgba(245, 177, 61, 0.22) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(245, 177, 61, 0.05) !important;
+  transition: border-color 0.2s, box-shadow 0.25s !important;
+}
+.cv-composer-inner:focus-within {
+  border-color: rgba(245, 177, 61, 0.5) !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 0 34px rgba(245, 177, 61, 0.12) !important;
+}
+
+/* chat sidebar: softer glass */
+.chat-sidebar {
+  background: rgba(7, 9, 14, 0.6) !important;
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+[data-theme='light'] .chat-sidebar { background: rgba(250, 247, 242, 0.8) !important; }
+
+/* ---------------- FACTORY FLOOR ---------------- */
+.fv-console {
+  border-radius: var(--radius-lg) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.025), rgba(255, 255, 255, 0) 40%), var(--bg-secondary) !important;
+  box-shadow: var(--shadow-xl), 0 0 70px rgba(245, 177, 61, 0.05) !important;
+}
+.fv-console-head {
+  background: linear-gradient(90deg, rgba(245, 177, 61, 0.06), rgba(139, 124, 246, 0.04), transparent) !important;
+}
+.fv-hub-card {
+  position: relative;
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+  transition: transform 0.24s var(--ease), border-color 0.24s, box-shadow 0.3s !important;
+}
+.fv-hub-card:hover {
+  transform: translateY(-5px) !important;
+  border-color: rgba(245, 177, 61, 0.35) !important;
+  box-shadow: var(--shadow-lg), 0 0 44px rgba(245, 177, 61, 0.09) !important;
+}
+.fv-hub-card::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 10%; right: 10%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245, 177, 61, 0.5), transparent);
+  opacity: 0;
+  transition: opacity 0.25s;
+  pointer-events: none;
+}
+.fv-hub-card:hover::after { opacity: 1; }
+
+/* the big RUN button — the lever pull */
+.fv-run,
+.fv-custom-btn,
+.fv-custom-cta {
+  border-radius: 12px !important;
+  font-weight: 800 !important;
+}
+.fv-run:not(:disabled) {
+  background: var(--grad-aurora) !important;
+  background-size: 170% 170% !important;
+  color: #1A0E04 !important;
+  border: none !important;
+  box-shadow: 0 12px 32px -10px rgba(245, 177, 61, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.35) !important;
+  transition: transform 0.16s var(--ease), box-shadow 0.25s, background-position 0.45s !important;
+}
+.fv-run:not(:disabled):hover {
+  background-position: 90% 50% !important;
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px -10px rgba(245, 177, 61, 0.7), 0 0 30px rgba(245, 177, 61, 0.2) !important;
+}
+.fv-run:not(:disabled):active { transform: translateY(1px) scale(0.985); }
+.fv-run:disabled { opacity: 0.5; }
+
+/* production progress rail — molten gradient */
+.fv-rail {
+  border-radius: 6px !important;
+  overflow: hidden;
+}
+.fv-rail-fill {
+  background: var(--grad-aurora) !important;
+  background-size: 200% 100% !important;
+  animation: molten 2.2s linear infinite !important;
+  box-shadow: 0 0 16px rgba(245, 177, 61, 0.5);
+}
+@keyframes molten {
+  from { background-position: 0% 0; }
+  to   { background-position: 200% 0; }
+}
+
+/* generation stage readouts */
+.fv-stage-state.done, .fv-stage-state.ok { color: var(--success) !important; }
+.fv-stage-state.run { color: var(--accent) !important; text-shadow: 0 0 12px rgba(245, 177, 61, 0.5); }
+.fv-stage.active .fv-stage-code { color: var(--accent) !important; }
+
+.fv-qty-input:focus {
+  border-color: rgba(245, 177, 61, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(245, 177, 61, 0.12), 0 0 22px rgba(245, 177, 61, 0.08) !important;
+}
+
+/* ---------------- LIBRARY ---------------- */
+.bot-card {
+  position: relative;
+  border-radius: var(--radius) !important;
+  overflow: hidden;
+  transition: transform 0.24s var(--ease), border-color 0.24s, box-shadow 0.3s var(--ease) !important;
+}
+.bot-card:hover {
+  transform: translateY(-5px) !important;
+  border-color: rgba(245, 177, 61, 0.32) !important;
+  box-shadow: var(--shadow-lg), 0 0 40px rgba(245, 177, 61, 0.08) !important;
+}
+.bot-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(240px 120px at 50% -30%, rgba(245, 177, 61, 0.07), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.bot-card:hover::before { opacity: 1; }
+.bot-name { font-weight: 700 !important; letter-spacing: -0.01em; }
+.bot-fav:hover { transform: scale(1.25) rotate(8deg); transition: transform 0.18s var(--ease); }
+
+.lib-stat-val {
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.lib-search:focus {
+  border-color: rgba(245, 177, 61, 0.5) !important;
+  box-shadow: 0 0 0 3px rgba(245, 177, 61, 0.1) !important;
+}
+.lib-filter, .lib-filters button { border-radius: 999px !important; transition: all 0.18s var(--ease) !important; }
+
+/* ---------------- AUTH — finishing touches ---------------- */
+.auth-card { animation: authFloat 7s ease-in-out infinite alternate; }
+@keyframes authFloat {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-6px); }
+}
+.auth-grid { opacity: 0.7; }
+.auth-card input:focus { border-color: rgba(245, 177, 61, 0.55); }
+
+/* text selection — brand light */
+::selection { background: rgba(245, 177, 61, 0.28); color: var(--fg); }
+
+/* ============================================================
+   LIGHT SYNTHWAVE SUNSET — colorful light theme (dark untouched)
+   Palette (from the reference image): peach → magenta → violet
+   sky gradient, hot-pink accents, deep-purple text.
+   ============================================================ */
+[data-theme='light'] {
+  --bg-primary:   #F6EFFB;
+  --bg-secondary: #FFFFFF;
+  --bg-tertiary:  #F3E9FB;
+  --bg-quaternary: #E9DCF8;
+
+  --fg:        #2B1B45;   /* deep purple text */
+  --fg-dim:    #5A4470;
+  --fg-faint:  #9A86B8;
+
+  --accent:        #D63FA6;   /* hot magenta — reads on light */
+  --accent-hover:  #BE2E92;
+  --accent-subtle: rgba(214, 63, 166, 0.10);
+
+  /* synthwave spectrum */
+  --aurora-violet: #7C4DD6;
+  --aurora-cyan:   #4BB3EC;
+  --aurora-pink:   #FF5FA8;
+  --grad-aurora: linear-gradient(120deg, #FF9A5C, #FF5FA8 45%, #A855F7 85%, #7C4DD6 110%);
+  --grad-text:   linear-gradient(100deg, #E8503A 0%, #EA4AA0 45%, #7C4DD6 95%);
+
+  --border-subtle: rgba(124, 77, 214, 0.10);
+  --border-default: rgba(124, 77, 214, 0.16);
+  --border-hover:   rgba(124, 77, 214, 0.30);
+  --glass:        rgba(255, 255, 255, 0.80);
+  --glass-border: rgba(124, 77, 214, 0.16);
+}
+
+/* soft sunset aurora across the app content */
+[data-theme='light'] .app-content {
+  background-image:
+    linear-gradient(rgba(124, 77, 214, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 77, 214, 0.035) 1px, transparent 1px) !important;
+}
+[data-theme='light'] .app-content::before {
+  background:
+    radial-gradient(1000px 560px at 12% -10%, rgba(168, 85, 247, 0.12), transparent 58%),
+    radial-gradient(900px 520px at 96% 12%, rgba(255, 95, 168, 0.10), transparent 55%),
+    radial-gradient(900px 600px at 50% 118%, rgba(255, 154, 92, 0.10), transparent 58%) !important;
+  animation: auroraDrift 24s ease-in-out infinite alternate !important;
+}
+
+/* light glass cards — magenta-edged sunset glow */
+[data-theme='light'] .ui-card::after,
+[data-theme='light'] .ui-stat::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 95, 168, 0.5), rgba(124, 77, 214, 0.45), transparent);
+}
+[data-theme='light'] .ui-card:hover,
+[data-theme='light'] .dash-stats-grid .ui-stat:hover {
+  border-color: rgba(214, 63, 166, 0.35) !important;
+  box-shadow: 0 14px 40px -12px rgba(124, 77, 214, 0.22), 0 0 34px rgba(255, 95, 168, 0.12) !important;
+}
+
+/* light sidebar & topbar — tinted glass */
+[data-theme='light'] .app-sidebar {
+  background: rgba(255, 255, 255, 0.84) !important;
+  backdrop-filter: blur(22px) saturate(160%);
+  -webkit-backdrop-filter: blur(22px) saturate(160%);
+  border-right: 1px solid rgba(124, 77, 214, 0.10) !important;
+}
+[data-theme='light'] .app-topbar {
+  background: rgba(255, 255, 255, 0.80) !important;
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
+[data-theme='light'] .app-mobile-tabs { background: rgba(255, 255, 255, 0.95) !important; }
+
+/* light sidebar active pill — magenta > violet gradient ring */
+[data-theme='light'] .app-side-link.active {
+  background: linear-gradient(90deg, rgba(255, 95, 168, 0.14), rgba(124, 77, 214, 0.12)) !important;
+  color: var(--accent) !important;
+}
+[data-theme='light'] .app-side-link.active::before {
+  background: var(--grad-aurora) !important;
+}
+[data-theme='light'] .app-side-link:hover { background: rgba(124, 77, 214, 0.07); }
+
+/* light buttons — vivid sunset gradient primary */
+[data-theme='light'] .ui-btn--primary,
+[data-theme='light'] .btn-primary,
+[data-theme='light'] .fv-run:not(:disabled) {
+  color: #FFFFFF !important;
+  box-shadow: 0 10px 26px -10px rgba(214, 63, 166, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+[data-theme='light'] .ui-btn--primary:hover,
+[data-theme='light'] .btn-primary:hover { box-shadow: 0 14px 32px -10px rgba(214, 63, 166, 0.6), 0 0 22px rgba(255, 95, 168, 0.2) !important; }
+
+/* light stat numbers — sunset gradient */
+[data-theme='light'] .ui-stat-value,
+[data-theme='light'] .lib-stat-val {
+  background: var(--grad-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+[data-theme='light'] .ui-stat-value, [data-theme='light'] .lib-stat-val { color: transparent; }
+
+/* light auth — synthwave sunset behind glass card */
+[data-theme='light'] .auth-page {
+  background-color: #F6EFFB !important;
+  background-image:
+    radial-gradient(760px 460px at 14% 6%, rgba(168, 85, 247, 0.16), transparent 55%),
+    radial-gradient(660px 420px at 92% 14%, rgba(255, 95, 168, 0.14), transparent 55%),
+    radial-gradient(760px 520px at 46% 118%, rgba(255, 154, 92, 0.14), transparent 58%) !important;
+}
+[data-theme='light'] .auth-card {
+  background: rgba(255, 255, 255, 0.84) !important;
+  box-shadow: 0 24px 70px rgba(124, 77, 214, 0.18), 0 0 60px rgba(168, 85, 247, 0.10) !important;
+}
+[data-theme='light'] .auth-card::before {
+  background: linear-gradient(140deg, rgba(255, 95, 168, 0.6), transparent 30%, transparent 70%, rgba(124, 77, 214, 0.55)) !important;
+}
+[data-theme='light'] .auth-grid {
+  background-image:
+    linear-gradient(rgba(124, 77, 214, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124, 77, 214, 0.05) 1px, transparent 1px) !important;
+}
+
+/* light dashboard hero — sunset ring */
+[data-theme='light'] .dash-hero-glow::after {
+  background: linear-gradient(120deg, rgba(255, 95, 168, 0.65), transparent 30%, transparent 62%, rgba(124, 77, 214, 0.6)) !important;
+}
+[data-theme='light'] .dash-hero-orbit {
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.18), transparent 62%) !important;
+}
+
+/* light scrollbar */
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 95, 168, 0.3), rgba(124, 77, 214, 0.3)) !important;
+  border-color: var(--bg-primary) !important;
+}
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover { background: rgba(214, 63, 166, 0.45) !important; }
+
+/* light focus ring */
+[data-theme='light'] :focus-visible { outline-color: var(--accent) !important; }
+/* light selection */
+[data-theme='light'] ::selection { background: rgba(255, 95, 168, 0.22); }
+
+
+/* ============================================================
+   LIVELINESS + RESPONSIVENESS
+   Motion (respects reduced-motion) and multi-screen adaptation.
+   ============================================================ */
+
+/* ---------- touch + tap basics ---------- */
+* { -webkit-tap-highlight-color: transparent; }
+button, .ui-btn, .app-side-link, .bot-card, .dash-bot-mini { touch-action: manipulation; }
+img, svg { max-width: 100%; }
+
+/* ---------- card entrance: staggered fade-up ---------- */
+.ui-card, .ui-stat, .bot-card, .fv-hub-card, .member-row, .dash-bot-mini, .dash-conv-item {
+  animation: riseIn 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+.dash-stats-grid .ui-stat:nth-child(2),  .bot-grid .bot-card:nth-child(2),  .dash-grid-2 > *:nth-child(2) { animation-delay: 0.06s; }
+.dash-stats-grid .ui-stat:nth-child(3),  .bot-grid .bot-card:nth-child(3),  .dash-grid-2 > *:nth-child(3) { animation-delay: 0.12s; }
+.dash-stats-grid .ui-stat:nth-child(4),  .bot-grid .bot-card:nth-child(4) { animation-delay: 0.18s; }
+.fv-hub-cards .fv-hub-card:nth-child(3) { animation-delay: 0.06s; }
+.fv-hub-cards .fv-hub-card:nth-child(4) { animation-delay: 0.12s; }
+@keyframes riseIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- primary buttons: periodic light sweep ---------- */
+.ui-btn--primary, .btn-primary, .fv-run:not(:disabled) {
+  position: relative !important;
+  overflow: hidden;
+}
+.ui-btn--primary::after, .btn-primary::after, .fv-run:not(:disabled)::after {
+  content: '';
+  position: absolute;
+  top: -40%; bottom: -40%;
+  left: -60%;
+  width: 40%;
+  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.5), transparent);
+  transform: skewX(-18deg);
+  animation: btnSheen 4.2s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes btnSheen {
+  0%, 55% { left: -60%; }
+  80%, 100% { left: 140%; }
+}
+.fv-run:disabled::after { display: none; }
+
+/* ---------- dashboard hero: living aurora ring ---------- */
+.dash-hero-glow::after {
+  animation: ringDrift 9s ease-in-out infinite alternate;
+}
+@keyframes ringDrift {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
+
+/* ---------- sidebar active pill: soft breathing glow ---------- */
+.app-side-link.active { box-shadow: inset 0 0 0 9999px rgba(245, 177, 61, 0.03); animation: pillBreath 3.6s ease-in-out infinite; }
+@keyframes pillBreath {
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(245, 177, 61, 0); }
+  50%      { box-shadow: inset 0 0 22px 0 rgba(245, 177, 61, 0.16); }
+}
+
+/* ---------- header logo glow ---------- */
+.app-side-logo .mark { animation: markPulse 4s ease-in-out infinite; }
+@keyframes markPulse {
+  0%, 100% { box-shadow: 0 0 16px rgba(245, 177, 61, 0.32); }
+  50%      { box-shadow: 0 0 26px rgba(245, 177, 61, 0.55); }
+}
+
+/* ---------- hover micro-nudges ---------- */
+.app-side-link:hover { transform: translateX(2px); }
+.ui-btn svg, .app-side-link svg { transition: transform 0.18s var(--ease); }
+.ui-btn:hover svg { transform: translateX(2px); }
+
+
+/* ============================================================
+   RESPONSIVENESS — firm up adaptation below 900px
+   ============================================================ */
+@media (max-width: 900px) {
+  .app-content { padding: 1.4rem 1rem 6.5rem !important; }
+  .dash-grid-2 { grid-template-columns: 1fr !important; }
+  .settings-grid { grid-template-columns: 1fr !important; }
+  .cbc-preview-grid { grid-template-columns: 1fr !important; }
+  .app-search-btn { max-width: 40vw; }
+  .dash-hero { padding: 1.7rem 1.4rem !important; }
+  .dash-hero h1 { font-size: 1.7rem !important; }
+}
+
+@media (max-width: 640px) {
+  .dash-stats-grid { grid-template-columns: 1fr 1fr !important; gap: 0.7rem !important; }
+  .dash-stats-grid .ui-stat { padding: 0.95rem 1.05rem !important; }
+  .ui-stat-value { font-size: 1.7rem !important; }
+  .ui-btn--lg, .btn-primary.lg { width: 100%; }
+  .bot-grid { grid-template-columns: 1fr !important; }
+  .app-topbar { gap: 0.5rem !important; }
+  .app-breadcrumbs { display: none; }
+  .app-topbar .app-search-btn .kbd-hint { display: none; }
+  .fv-hero { padding: 1.3rem 1.1rem !important; }
+  .fv-hub-cards, .lp-grid, .lp-steps { grid-template-columns: 1fr !important; }
+  .ui-modal { margin: 0.6rem; }
+  .member-row { flex-wrap: wrap; gap: 0.3rem; }
+  .dash-actions { gap: 0.5rem; }
+  .dash-actions .ui-btn { flex: 1 1 auto; font-size: 0.82rem; }
+}
+
+@media (max-width: 480px) {
+  .dash-stats-grid { grid-template-columns: 1fr !important; }
+  .app-content { padding: 1.1rem 0.85rem 6.2rem !important; }
+  .app-topbar { padding: 0.65rem 0.85rem !important; }
+  .dash-hero { padding: 1.4rem 1.1rem !important; }
+  .dash-hero h1 { font-size: 1.5rem !important; }
+  .ui-btn { font-size: 0.84rem; }
+  .ui-btn--primary, .btn-primary { padding: 0.7rem 1rem; }
+}
+
+/* ---------- horizontal scroll safety for wide content ---------- */
+.recharts-wrapper, .app-content table, .lib-toolbar { overflow-x: auto; }
+.app-content table { display: block; max-width: 100%; }
+.app-content { overflow-x: hidden; }
+
+
+/* ============================================================
+   AMBIENT LIFE — every page moves, in BOTH themes
+   The landing page has embers/conveyor/typing; the app pages
+   get a living background + moving light so no page feels flat.
+   ============================================================ */
+
+/* a) living aurora: three drifting color blobs, always moving */
+.app-content::before {
+  background:
+    radial-gradient(660px 420px at 18% 6%,   rgba(245, 177, 61, 0.16), transparent 60%),
+    radial-gradient(560px 380px at 86% 16%,  rgba(139, 124, 246, 0.13), transparent 60%),
+    radial-gradient(520px 420px at 52% 108%, rgba(56, 189, 248, 0.10), transparent 60%) !important;
+  animation: lifeBlobs 18s ease-in-out infinite alternate;
+  will-change: transform, opacity;
+}
+[data-theme='light'] .app-content::before {
+  background:
+    radial-gradient(680px 440px at 16% 4%,   rgba(168, 85, 247, 0.20), transparent 60%),
+    radial-gradient(600px 400px at 88% 14%,  rgba(255, 95, 168, 0.18), transparent 60%),
+    radial-gradient(560px 440px at 50% 110%, rgba(255, 154, 92, 0.16), transparent 60%) !important;
+  animation-name: lifeBlobs;
+}
+@keyframes lifeBlobs {
+  0%   { transform: translate3d(0, 0, 0) scale(1);        opacity: 0.8; }
+  50%  { transform: translate3d(-26px, 20px, 0) scale(1.06); opacity: 1; }
+  100% { transform: translate3d(24px, -16px, 0) scale(1.1); opacity: 0.9; }
+}
+
+/* b) the subtle blueprint grid slowly pans */
+.app-content {
+  background-position: 0 0, 0 0;
+  animation: gridPan 44s linear infinite;
+}
+[data-theme='light'] .app-content { animation-name: gridPan; }
+@keyframes gridPan {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 44px 44px, 44px 44px; }
+}
+/* keep the grid motion from fighting the blob layer */
+.app-content::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(1200px 700px at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.55) 100%);
+}
+[data-theme='light'] .app-content::after {
+  background: radial-gradient(1200px 700px at 50% 50%, transparent 60%, rgba(120, 90, 160, 0.10) 100%);
+}
+
+/* c) gradient headline shimmer (dashboards + page titles, both themes) */
+.dash-hero h1,
+.settings-card h3,
+.cbc-hero h3,
+.lib-title {
+  background: var(--grad-text);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: textSheen 4.8s ease-in-out infinite;
+}
+@keyframes textSheen {
+  0%, 100% { background-position: 0% 0; }
+  50%      { background-position: 100% 0; }
+}
+
+/* d) moving top light-line across every topbar */
+.app-topbar::after {
+  background: linear-gradient(90deg, transparent, var(--accent), rgba(139, 124, 246, 0.6), transparent) !important;
+  background-size: 220% 100%;
+  animation: barGlide 6s ease-in-out infinite;
+}
+@keyframes barGlide {
+  0%   { background-position: 120% 0; }
+  100% { background-position: -120% 0; }
+}
+[data-theme='light'] .app-topbar::after {
+  background: linear-gradient(90deg, transparent, #FF5FA8, #7C4DD6, transparent) !important;
+  background-size: 220% 100%;
+  animation: barGlide 6s ease-in-out infinite;
+}
+
+/* e) faintly breathing card edges, both themes */
+.ui-card::after, .ui-stat::after {
+  opacity: 0.4;
+  animation: edgeBreath 5s ease-in-out infinite;
+}
+@keyframes edgeBreath {
+  0%, 100% { opacity: 0.32; }
+  50%      { opacity: 0.62; }
+}
+
+/* f) hover peeks light through the whole content */
+.app-content > * { position: relative; z-index: 1; }
+
+/* g) respect reduced-motion: calm everything down */
+@media (prefers-reduced-motion: reduce) {
+  .app-content::before, .app-content, .app-content::after,
+  .dash-hero h1, .dash-section-title, .settings-card h3, .cbc-hero h3, .lib-title,
+  .app-topbar::after, .ui-card::after, .ui-stat::after,
+  .dash-hero-glow::after, .app-side-link.active, .app-side-logo .mark {
+    animation: none !important;
+  }
+  .dash-hero h1, .settings-card h3, .cbc-hero h3, .lib-title { color: var(--fg); background: none; -webkit-background-clip: initial; }
+  .ui-card, .ui-stat, .bot-card, .fv-hub-card, .member-row, .dash-bot-mini, .dash-conv-item { animation: none !important; }
+}
+
+
+
+
+

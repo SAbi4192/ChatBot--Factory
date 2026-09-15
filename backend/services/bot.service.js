@@ -1,13 +1,12 @@
 /**
  * Bot service — business logic for bot CRUD and generation.
  *
- * Routes call these functions; this module owns the rules (caps, ID
- * generation, org scoping, quota checks) while db.js owns storage.
+ * Routes call these functions; this module owns the rules (ID
+ * generation, org scoping) while db.js owns storage.
  */
 import db from '../db.js';
 import { generateSingleBot } from '../generator.js';
 import { ApiError } from '../middleware/errorHandler.js';
-import { checkBotQuota } from './org.service.js';
 
 /** Server-side cap per generation request; the frontend batches larger orders. */
 export const GENERATE_CAP = 50;
@@ -29,14 +28,10 @@ export async function getBotOrThrow(id, orgId) {
 
 /**
  * Generate up to GENERATE_CAP bots in one request.
- * The org's bot quota is enforced before any generation work starts.
  * Returns { bots, count, capped } so the route can report truncation.
  */
 export async function generateBots(requestedCount, orgId) {
   const n = Math.min(requestedCount, GENERATE_CAP);
-
-  const quota = await checkBotQuota(orgId, n);
-  if (!quota.ok) throw new ApiError(429, quota.message);
 
   const bots = await Promise.all(
     Array.from({ length: n }).map(() => generateSingleBot())

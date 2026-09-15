@@ -36,3 +36,13 @@ export const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: 'Too many auth attempts — try again in a minute.' },
 });
+
+/** Ship endpoint limiter — GitHub/Render calls. Sized for bulk batches:
+ *  30 bots × (ship + deploy + status polls) must fit inside one window. */
+export const shipLimiter = rateLimit({
+  windowMs: 60_000,
+  limit: 600,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Shipping too fast — let the previous ships finish first.' },
+});

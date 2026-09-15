@@ -6,6 +6,8 @@ import { checkDomainRelevance, generateRedirectMessage, generateIntroMessage } f
 import { runTools } from './services/tools.service.js';
 import { analyzeMessage, redactPII } from './services/nlu.service.js';
 import { runSlotEngine, runFlowEngine } from './services/engines.service.js';
+import { pickSpecialist, logRoute, tagRoutedMessage, isTeamGateQuery } from './services/teamMode.service.js';
+import { retrieveChunks } from './services/rag.service.js';
 
 /**
  * ============================================================
@@ -439,6 +441,71 @@ async function answerNormal(bot, history, userMessage, log) {
 // ============================================================================
 const uid = () => Math.random().toString(36).substring(2, 11);
 
+// ============================================================================
+// TEAM MODE — orchestrator routing (Checkpoint 11)
+// A bot with teamMode=true acts as an orchestrator: each message is routed to
+// the most relevant specialist bot in the same org, which answers in its own
+// voice (its guard / tools / RAG all still apply). The orchestrator answers
+// small talk and meta questions itself. Routing failures fall back to normal
+// orchestration — chat never dead-ends because of Team Mode.
+// ============================================================================
+
+/** RAG augmentation for the routed specialist (same shape as chat.service). */
+async function withRagAugment(botId, userMessage) {
+  try {
+    const chunks = await retrieveChunks(botId, userMessage);
+    if (!chunks.length) return { augmented: userMessage, sources: [] };
+    const context = chunks.map((c) => `[Source: ${c.source}]\n${c.content}`).join('\n\n');
+    const uniqueSources = [...new Set(chunks.map((c) => c.source))];
+    const augmented = `${userMessage}\n\n---\n**Knowledge base context (from ${uniqueSources.join(', ')}):**\n${context}\n---\nAnswer with these sources when relevant.`;
+    return { augmented, sources: uniqueSources };
+  } catch { return { augmented: userMessage, sources: [] }; }
+}
+
+/**
+ * Route the message to a specialist when the orchestrator has Team Mode on.
+ * Returns the provider-shaped result (response/messageId/provider...) or null
+ * when Team Mode is off / no specialist fits / routing failed.
+ */
+async function tryTeamRoute(bot, orgId, conversationId, userMessage, history) {
+  try {
+    if (!bot?.teamMode) return null;
+    if (isTeamGateQuery(userMessage)) return null;
+    const pick = await pickSpecialist(orgId || bot.orgId, bot, userMessage);
+    if (!pick?.bot) return null;
+    const specialist = await db.getBot(pick.bot.id);
+    if (!specialist) return null;
+    console.log(`[TeamMode] ${bot.name} → routed to ${specialist.name} (${pick.mode}, score ${(pick.score ?? 0).toFixed(2)})`);
+    // Persist the user message exactly once (the specialist's routeAndPersist
+    // only persists the assistant reply — normally each entry point persists
+    // the user message AFTER the team gate, which the routed path skips).
+    const nlu = analyzeMessage(userMessage);
+    await db.addMessage(uid(), conversationId, 'user', userMessage, Date.now(), 'user', null, null, nlu);
+    // RAG-augment first (specialist's own knowledge base), then run the full
+    // pipeline (guard → engines → tools → AI) AS the specialist. routeAndPersist
+    // persists both messages exactly once — the orchestrator contributes only
+    // the routing decision, never a duplicate message.
+    const { augmented, sources: ragSources } = await withRagAugment(specialist.id, userMessage);
+    const result = await routeAndPersist(specialist, conversationId, augmented, history);
+    await tagRoutedMessage(result.messageId, specialist.name);
+    const mergedSources = result.sources?.length ? result.sources : (ragSources.length ? ragSources : null);
+    logRoute({
+      orgId: orgId || bot.orgId,
+      orchestratorId: bot.id,
+      specialistId: specialist.id,
+      specialistName: specialist.name,
+      message: userMessage,
+      mode: pick.mode,
+      score: pick.score,
+      conversationId,
+    });
+    return { ...result, provider: `team:${specialist.name}`, sources: mergedSources };
+  } catch (e) {
+    console.warn(`[TeamMode] routing failed (${e.message}); orchestrator answers itself`);
+    return null;
+  }
+}
+
 // Shared: run the Domain Guard + current-info router and persist the answer.
 // `history` must be the messages that came BEFORE `userMessage`.
 // Exported so the fork flow can route without duplicating the user message.
@@ -550,12 +617,16 @@ export async function routeAndPersist(bot, conversationId, userMessage, history)
   return { response: result.response, messageId: aid, provider: result.provider, sources: result.sources, responseMs };
 }
 
-export async function generateChatResponse(botId, conversationId, userMessage) {
+export async function generateChatResponse(botId, conversationId, userMessage, { direct = false } = {}) {
   const bot = await db.getBot(botId);
   if (!bot) throw new Error('Bot not found');
 
   const messages = await db.getMessages(conversationId);
   const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+
+  // ---- 0. TEAM MODE (orchestrator routing) ----
+  const teamResult = direct ? null : await tryTeamRoute(bot, bot.orgId, conversationId, userMessage, history);
+  if (teamResult) return teamResult;
 
   // Persist the user message up front so it is never lost, even if the AI call fails.
   const nlu = analyzeMessage(userMessage);
@@ -698,12 +769,21 @@ export async function getProviderStatus() {  let localReachable = false;
  *
  * Routing mirrors generateChatResponse: Domain Guard -> profile -> AI chain.
  */
-export async function streamChatResponse(botId, conversationId, userMessage, emit) {
+export async function streamChatResponse(botId, conversationId, userMessage, emit, { direct = false } = {}) {
   const bot = await db.getBot(botId);
   if (!bot) throw new Error('Bot not found');
 
   const messages = await db.getMessages(conversationId);
   const history = messages.slice(-10).map(m => ({ role: m.role, content: m.content }));
+
+  // ---- 0. TEAM MODE (orchestrator routing, streaming entry) ----
+  // Runs before the user message is persisted: routeAndPersist (inside the
+  // specialist pipeline) owns persistence, so no duplicates.
+  const teamResult = direct ? null : await tryTeamRoute(bot, bot.orgId, conversationId, userMessage, history);
+  if (teamResult) {
+    emit(teamResult.response);
+    return { ...teamResult, streamed: false };
+  }
 
   // Persist the user message up front.
   await db.addMessage(uid(), conversationId, 'user', userMessage, Date.now());

@@ -42,6 +42,7 @@ export default function BotEditor() {
   const [traits, setTraits] = useState<Record<string, number>>({});
   const [guard, setGuard] = useState('moderate');
   const [memory, setMemory] = useState(true);
+  const [team, setTeam] = useState(false);
   const [slots, setSlots] = useState<Array<{ name: string; label: string; type: string; required: boolean; hint?: string }>>([]);
   const [provider, setProvider] = useState('auto');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export default function BotEditor() {
       setTraits((b as unknown as Record<string, unknown>).personalityTraits as Record<string, number> ?? {});
       setGuard((b as unknown as Record<string, unknown>).guardStrictness as string ?? 'moderate');
       setMemory((b as unknown as Record<string, unknown>).memoryEnabled !== false);
+      setTeam((b as unknown as Record<string, unknown>).teamMode === true);
       setSlots((b as unknown as Record<string, unknown>).slots as typeof slots ?? []);
       setProvider((b as unknown as Record<string, string>).provider ?? 'auto');
     }).catch((e) => setLoadError((e as Error).message));
@@ -93,6 +95,7 @@ export default function BotEditor() {
         systemPrompt: systemPrompt + (personalityText ? `\n\n${personalityText}` : ''),
         welcomeMessage: welcome, starterQuestions: starters.filter(Boolean),
         personalityTraits: traits, guardStrictness: guard, memoryEnabled: memory,
+        teamMode: team,
         provider, slots,
         designDna: bot.designDna,
       };
@@ -328,6 +331,13 @@ export default function BotEditor() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
               <Switch checked={memory} onChange={(v) => { setMemory(v); setDirty(true); }} label="Long-term memory" />
               <div><div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Long-term memory</div><div style={{ fontSize: '0.78rem', color: 'var(--fg-faint)' }}>Recall relevant past exchanges</div></div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+              <Switch checked={team} onChange={(v) => { setTeam(v); setDirty(true); }} label="Team Mode" />
+              <div>
+                <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>Team Mode (orchestrator)</div>
+                <div style={{ fontSize: '0.78rem', color: 'var(--fg-faint)' }}>Route every message to the best specialist bot in this workspace — this bot greets and coordinates instead of answering</div>
+              </div>
             </div>
             <div>
               <span className="settings-field"><span>Provider (per-bot model)</span></span>

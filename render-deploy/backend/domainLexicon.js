@@ -81,10 +81,15 @@ export const DOMAIN_LEXICON = {
   ],
   ai: [
     'ai', 'artificial intelligence', 'machine learning', 'deep learning', 'neural network',
+    'joke', 'jokes', 'riddle', 'meme', 'memes', 'story', 'stories',
     'llm', 'large language model', 'language model', 'chatbot', 'training data', 'dataset',
     'inference', 'transformer', 'gpt', 'chatgpt', 'claude', 'gemini', 'llama', 'openai',
     'anthropic', 'hugging face', 'fine-tuning', 'fine tuning', 'prompt', 'embedding',
     'token', 'hallucinate', 'hallucination', 'computer vision', 'nlp',
+    'rag', 'retrieval augmented', 'retrieval-augmented', 'retrieval augmented generation',
+    'vector database', 'vector db', 'knowledge graph', 'prompt engineering',
+    'python code', 'code for', 'programming', 'coding', 'algorithm', 'data structure',
+    'software engineer', 'web developer', 'javascript', 'react', 'django', 'flask',
     // 'language' is shared with the Languages specialty on purpose: "why do
     // language models hallucinate" is an AI question, not a grammar question.
     'language', 'natural language', 'reinforcement learning', 'supervised'
@@ -318,7 +323,21 @@ export const DOMAIN_LEXICON = {
   ],
   automotive: [
     'car repair', 'engine repair', 'oil change', 'tyre', 'tire', 'gearbox', 'clutch',
-    'odometer', 'mileage', 'car insurance', 'test drive', 'sedan', 'suv'
+    'odometer', 'mileage', 'car insurance', 'test drive', 'sedan', 'suv', 'car', 'automotive',
+    'bike', 'bikes', 'motorcycle', 'motorcycles', 'motorbike', 'scooter', 'moped',
+    'ktm', 'duke', 'rc 200', 'rc 390', 'adventure', 'nexus', 'aprilia', 'rs 200',
+    'royal enfield', 'enfield', 'classic 350', 'meteor', 'himalayan', 'continental gt', 'scram 411', 'gn 125', 'bullet',
+    'bajaj', 'pulsar', 'ns 200', 'apache', 'r15', 'mt 15', 'yzf r3', 'yamaha', 'tvs', 'raider', 'ronin', 'jupiter',
+    'hero', 'splendor', 'passion pro', 'xtreme', 'honda', 'shine', 'activa', 'unicorn', 'cb350', 'cb 350', 'cb hornet',
+    'bmw g310', 'g 310', 'suzuki', 'hayabusa', 'gsx', 'ninja', 'kawasaki', 'z900', 'z 900', 'versys',
+    'harley', 'dyna', 'street 750', 'iron 883', 'xuv', 'thar', 'scorpio', 'creta', 'brezza', 'baleno', 'i20',
+    'ex60', 'xc40', 'i3', 'ix3', 'engine', 'cc', 'hp', 'horsepower', 'torque', 'acceleration', 'top speed',
+    'abs', 'disc brake', 'drum brake', 'tubeless', 'alloy wheel', 'spoke wheel', 'exhaust', 'silencer', 'headlamp',
+    'suspension', 'monoshock', 'telescopic', 'frame', 'kerb weight', 'ground clearance', 'seat height', 'fuel tank',
+    'petrol', 'diesel', 'electric bike', 'ev', 'charging', 'mileage', 'service cost', 'on road price', 'showroom',
+    'riding', 'helmet', 'riding gear', 'riding position', 'pillion', 'commute', 'commuting', 'touring', 'off-road',
+    'learner licence', 'driving licence', 'insurance renewal', 'servicing', 'road test', 'pick', 'sales', 'electric scooter',
+    'city ride', 'highway', 'beginner bike', 'first bike', 'best bike', 'starter bike'
   ],
   relationships: [
     'dating', 'girlfriend', 'boyfriend', 'crush', 'breakup', 'relationship advice', 'flirt'

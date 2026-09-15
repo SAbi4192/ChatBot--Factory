@@ -8,7 +8,7 @@ import {
   Send, ArrowLeft, Plus, Menu, X, RotateCcw, MessageSquare,
   Play, Pause, SkipForward, SkipBack, LogOut, Globe, Cpu, Cloud, ShieldAlert, BadgeCheck,
   Copy, Pin, ThumbsUp, ThumbsDown, Share2, Pencil, Download, Sparkles, FileText, Paperclip,
-  Mic, MicOff, Volume2, VolumeX, Languages, GitCompare, Loader2,
+  Mic, MicOff, Volume2, VolumeX, Languages, GitCompare, Loader2, Users,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './ChatView.css';
@@ -35,6 +35,7 @@ const PROVIDERS: Record<string, { label: string; Icon: typeof Cpu; cls: string }
   web:            { label: 'Web-enhanced',  Icon: Globe,       cls: 'p-web' },
   'domain-guard': { label: 'Domain Guard',  Icon: ShieldAlert, cls: 'p-guard' },
   profile:        { label: 'Bot Profile',   Icon: BadgeCheck,  cls: 'p-profile' },
+  team:           { label: 'Team',          Icon: Users,       cls: 'p-team' },
 };
 
 const LANG_CODES: Record<string, string> = {
@@ -128,6 +129,8 @@ export default function ChatView() {
   const [isTyping, setIsTyping] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [teamOn, setTeamOn] = useState(false);
+  const [teamOff, setTeamOff] = useState(false); // per-session pause for Team Mode
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -156,6 +159,7 @@ export default function ChatView() {
       if (!found) { setNotFound(true); return; }
       markBotSeen(botId);
       setBot(found);
+      setTeamOn(found.teamMode === true);
       db.getConversationsByBot(botId).then(convs => {
         if (!alive) return;
         setConversations(convs);
@@ -230,7 +234,7 @@ export default function ChatView() {
       try {
         await db.streamChat(botId, activeConvId, trimmed, (token) => {
           setStreamingText(prev => (prev ?? '') + token);
-        });
+        }, !teamOn || teamOff);
         setStreamingText(null);
         // The server is the single source of truth: both the user message and
         // the reply are persisted before streamChat resolves, so reload the
@@ -240,7 +244,7 @@ export default function ChatView() {
         setMessages(msgs);
       } catch {
         // Fallback: non-streaming POST.
-        const data = await db.sendMessage(botId, activeConvId, trimmed);
+        const data = await db.sendMessage(botId, activeConvId, trimmed, !teamOn || teamOff);
         setMessages(prev => [...prev, {
           id: data.messageId, role: 'assistant', content: data.response,
           provider: data.provider, sources: data.sources,
@@ -783,7 +787,8 @@ export default function ChatView() {
               <>
                 {messages.map((msg, idx) => {
                   const isLast = idx === messages.length - 1;
-                  const prov = msg.provider ? PROVIDERS[msg.provider] : null;
+                  const routedName = msg.provider?.startsWith('team:') ? msg.provider.slice(5) : null;
+                  const prov = msg.provider ? (PROVIDERS[msg.provider] ?? (routedName ? PROVIDERS.team : null)) : null;
                   return (
                     <div key={msg.id} className={`cv-row ${msg.role} ${msg.pinned ? 'is-pinned' : ''}`}>
                       {msg.role === 'assistant' && (
@@ -859,8 +864,8 @@ export default function ChatView() {
                           <div className="cv-meta-wrap">
                             <div className="cv-meta">
                               {prov && (
-                                <span className={`cv-provider ${prov.cls}`}>
-                                  <prov.Icon /> {prov.label}
+                                <span className={`cv-provider ${prov.cls}`} title={routedName ? `Routed by ${bot.name} to the ${routedName} specialist` : undefined}>
+                                  {routedName ? <><prov.Icon /> {routedName}</> : <><prov.Icon /> {prov.label}</>}
                                 </span>
                               )}
                               {msg.role === 'assistant' && (
@@ -925,6 +930,16 @@ export default function ChatView() {
 
         <div className="cv-composer">
           <div className="cv-composer-inner">
+            {teamOn && (
+              <button
+                className={`cv-team-btn ${teamOff ? 'is-off' : ''}`}
+                onClick={() => setTeamOff(!teamOff)}
+                title={teamOff ? 'Team Mode paused — this bot answers directly' : 'Team Mode active — messages route to the best specialist'}
+                aria-label="Toggle Team Mode"
+              >
+                <Users />
+              </button>
+            )}
             <button
               className={`cv-attach-btn ${listening ? 'is-listening' : ''}`}
               onClick={toggleVoice}

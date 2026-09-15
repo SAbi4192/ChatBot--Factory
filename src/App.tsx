@@ -11,11 +11,13 @@ import RegisterView from './pages/auth/RegisterView';
 
 // Lazy — code-split by route
 const ChatView = lazy(() => import('./pages/ChatView'));
+const LandingView = lazy(() => import('./pages/LandingView'));
 const ShareView = lazy(() => import('./pages/ShareView'));
 const FactoryView = lazy(() => import('./pages/FactoryView'));
 const RandomBotView = lazy(() => import('./pages/RandomBotView'));
 const CustomBotView = lazy(() => import('./pages/CustomBotView'));
 const LibraryView = lazy(() => import('./pages/LibraryView'));
+const ShipView = lazy(() => import('./pages/ShipView'));
 const SearchView = lazy(() => import('./pages/SearchView'));
 const SettingsView = lazy(() => import('./pages/SettingsView'));
 const OrgSettingsView = lazy(() => import('./pages/OrgSettingsView'));
@@ -36,7 +38,7 @@ function Protected({ children }: { children: React.ReactNode }) {
   const { initialized, user } = useAuth();
   const location = useLocation();
   if (!initialized) return null;
-  if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!user) return <Navigate to="/home" replace state={{ from: location.pathname }} />;
   return <>{children}</>;
 }
 
@@ -57,6 +59,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<LoginView />} />
         <Route path="/register" element={<RegisterView />} />
+        <Route path="/home" element={<Suspend><LandingView /></Suspend>} />
         <Route path="/share/:convId" element={<Suspend><ShareView /></Suspend>} />
 
         <Route path="/chat/:botId" element={
@@ -103,6 +106,7 @@ function App() {
                   <Route path="/factory/random" element={<Suspend><RandomBotView /></Suspend>} />
                   <Route path="/factory/custom" element={<Suspend><CustomBotView /></Suspend>} />
                   <Route path="/library" element={<Suspend><LibraryView /></Suspend>} />
+                  <Route path="/ship" element={<Suspend><ShipView /></Suspend>} />
                   <Route path="/search" element={<Suspend><SearchView /></Suspend>} />
                   <Route path="/analytics" element={<Suspend><AnalyticsView /></Suspend>} />
                   <Route path="/moderation" element={<Suspend><ModerationView /></Suspend>} />

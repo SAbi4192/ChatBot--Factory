@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { toast } from 'sonner';
 import { User as UserIcon, Building2, Copy, Trash2, Plus } from 'lucide-react';
@@ -53,15 +53,6 @@ export default function OrgSettingsView() {
   }, [orgId]);
 
   useEffect(() => { load().catch(() => {}); }, [load]);
-
-  const quotas = useMemo(() => {
-    if (!org) return null;
-    return [
-      { label: 'Bots', used: org.usage.bots, max: org.limits.maxBots },
-      { label: 'Messages today', used: org.usage.messagesToday, max: org.limits.maxMessagesPerDay },
-      { label: 'Members', used: org.usage.members, max: org.limits.maxMembers },
-    ];
-  }, [org]);
 
   const makeInvite = async () => {
     if (!orgId) return;
@@ -171,26 +162,12 @@ export default function OrgSettingsView() {
         </nav>
 
         <div>
-          {/* Usage quotas */}
+          {/* Workspace summary */}
           <Card className="settings-card">
-            <h3>Usage</h3>
-            <p className="card-desc">Consumption against this workspace's plan. Soft warning at 80%, hard block at 100%.</p>
-            {quotas?.map((q) => {
-              const pct = q.max > 0 ? Math.round((q.used / q.max) * 100) : 0;
-              const cls = pct >= 100 ? 'full' : pct >= 80 ? 'warn' : 'ok';
-              return (
-                <div className="quota-meter" key={q.label}>
-                  <div className="qm-head">
-                    <span className="qm-label">{q.label}</span>
-                    <span className="qm-value">{q.used.toLocaleString()} / {q.max.toLocaleString()} ({pct}%)</span>
-                  </div>
-                  <div className="qm-bar">
-                    <div className={`qm-fill ${cls}`} style={{ width: `${Math.min(100, pct)}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-            <Badge tone="accent">Plan: {org?.plan ?? 'free'}</Badge>
+            <h3>Workspace</h3>
+            <p className="card-desc">
+              {org ? `${org.usage.bots.toLocaleString()} bots, ${org.usage.members} members, ${org.usage.messagesToday.toLocaleString()} chats today.` : ''}
+            </p>
           </Card>
 
           {/* Settings (admin) */}
