@@ -471,7 +471,14 @@ export default function ChatView() {
     return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', loadVoices);
   }, []);
 
+  // A monotonic token for the current speak session. Every async callback
+  // (chunk player, setTimeout fallbacks, onerror) checks it before producing
+  // ANY sound — this is what prevents the classic "two voices at once" bug
+  // where Google TTS + a late local-voice fallback overlap.
+  const speakToken = useRef(0);
+
   const stopSpeaking = () => {
+    speakToken.current += 1; // invalidate every in-flight/pending speech path
     window.speechSynthesis?.cancel?.();
     audioRefs.current.forEach(a => { try { a.pause(); a.src = ''; } catch { /* noop */ } });
     audioRefs.current = [];
@@ -487,23 +494,33 @@ export default function ChatView() {
     `/api/tts?tl=${tl}&q=${encodeURIComponent(text)}`;
 
   const speakViaGoogle = (text: string, tl: string, onDone: () => void, onFail: (err?: unknown) => void) => {
+    const my = speakToken.current;
     const chunks: string[] = [];
     let rest = String(text || '');
     while (rest.length > 180 && chunks.length < 5) { chunks.push(rest.slice(0, 180)); rest = rest.slice(180); }
     if (rest) chunks.push(rest);
     let i = 0;
+    let settled = false;
+    const live = () => speakToken.current === my;
+    const fail = (e?: unknown) => { if (!settled && live()) { settled = true; onFail(e); } };
+    const done = () => { if (!settled && live()) { settled = true; onDone(); } };
     const playNext = () => {
-      if (i >= chunks.length) { onDone(); return; }
+      if (!live() || settled) return; // stopped or superseded mid-stream
+      if (i >= chunks.length) { done(); return; }
       const audio = new Audio(googleTtsUrl(chunks[i], tl));
       audioRefs.current.push(audio);
       audio.onended = () => { i += 1; playNext(); };
-      audio.onerror = () => { onFail(new Error(`audio failed for chunk ${i}`)); };
-      audio.play().catch((e) => onFail(e));
+      // If a LATER chunk fails after some audio already played, skipping the
+      // chunk is far better than falling back — a fallback now would start a
+      // second voice over the Google one (the exact "two audio" bug).
+      audio.onerror = () => { if (i === 0) fail(new Error(`audio failed for chunk ${i}`)); else { i += 1; playNext(); } };
+      audio.play().catch(() => { if (i === 0) fail(new Error('play blocked')); else { i += 1; playNext(); } });
     };
     playNext();
   };
 
   const speakLocal = (text: string) => {
+    const my = speakToken.current;
     const u = new SpeechSynthesisUtterance(text);
     const lang = langFromScript(text);
     // Always set the utterance language so the browser matches a voice that
@@ -513,10 +530,17 @@ export default function ChatView() {
     if (voice) u.voice = voice;
     u.pitch = 1.12;
     u.rate = 1;
-    u.onend = () => setSpeakingId(null);
+    let localSettled = false;
+    u.onend = () => { if (!localSettled && speakToken.current === my) { localSettled = true; setSpeakingId(null); } };
     u.onerror = () => {
-      // Local engine failed silently — fall back to online Google TTS.
-      speakViaGoogle(text, lang === 'zh' ? 'zh-CN' : lang, () => setSpeakingId(null), (err) => { setSpeakingId(null); toast.error(`Speech unavailable (${err instanceof Error ? err.message : 'unknown error'})`); });
+      // Local engine failed silently — fall back to online Google TTS ONCE.
+      if (localSettled || speakToken.current !== my) return;
+      localSettled = true;
+      speakViaGoogle(text, lang === 'zh' ? 'zh-CN' : lang, () => { if (speakToken.current === my) setSpeakingId(null); }, (err) => {
+        if (speakToken.current !== my) return;
+        setSpeakingId(null);
+        toast.error(`Speech unavailable (${err instanceof Error ? err.message : 'unknown error'})`);
+      });
     };
     window.speechSynthesis.speak(u);
   };

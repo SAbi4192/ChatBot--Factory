@@ -8,7 +8,7 @@ import {
   Send, ArrowLeft, Plus, Menu, X, RotateCcw, MessageSquare,
   Play, Pause, SkipForward, SkipBack, LogOut, Globe, Cpu, Cloud, ShieldAlert, BadgeCheck,
   Copy, Pin, ThumbsUp, ThumbsDown, Share2, Pencil, Download, Sparkles, FileText, Paperclip,
-  Mic, MicOff, Volume2, VolumeX, Languages, GitCompare, Loader2,
+  Mic, MicOff, Volume2, VolumeX, Languages, GitCompare, Loader2, Users,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import './ChatView.css';
@@ -35,6 +35,7 @@ const PROVIDERS: Record<string, { label: string; Icon: typeof Cpu; cls: string }
   web:            { label: 'Web-enhanced',  Icon: Globe,       cls: 'p-web' },
   'domain-guard': { label: 'Domain Guard',  Icon: ShieldAlert, cls: 'p-guard' },
   profile:        { label: 'Bot Profile',   Icon: BadgeCheck,  cls: 'p-profile' },
+  team:           { label: 'Team',          Icon: Users,       cls: 'p-team' },
 };
 
 const LANG_CODES: Record<string, string> = {
@@ -128,6 +129,8 @@ export default function ChatView() {
   const [isTyping, setIsTyping] = useState(false);
   const [streamingText, setStreamingText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [teamOn, setTeamOn] = useState(false);
+  const [teamOff, setTeamOff] = useState(false); // per-session pause for Team Mode
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -156,6 +159,7 @@ export default function ChatView() {
       if (!found) { setNotFound(true); return; }
       markBotSeen(botId);
       setBot(found);
+      setTeamOn(found.teamMode === true);
       db.getConversationsByBot(botId).then(convs => {
         if (!alive) return;
         setConversations(convs);
@@ -230,7 +234,7 @@ export default function ChatView() {
       try {
         await db.streamChat(botId, activeConvId, trimmed, (token) => {
           setStreamingText(prev => (prev ?? '') + token);
-        });
+        }, !teamOn || teamOff);
         setStreamingText(null);
         // The server is the single source of truth: both the user message and
         // the reply are persisted before streamChat resolves, so reload the
@@ -240,7 +244,7 @@ export default function ChatView() {
         setMessages(msgs);
       } catch {
         // Fallback: non-streaming POST.
-        const data = await db.sendMessage(botId, activeConvId, trimmed);
+        const data = await db.sendMessage(botId, activeConvId, trimmed, !teamOn || teamOff);
         setMessages(prev => [...prev, {
           id: data.messageId, role: 'assistant', content: data.response,
           provider: data.provider, sources: data.sources,
@@ -467,7 +471,14 @@ export default function ChatView() {
     return () => window.speechSynthesis?.removeEventListener?.('voiceschanged', loadVoices);
   }, []);
 
+  // A monotonic token for the current speak session. Every async callback
+  // (chunk player, setTimeout fallbacks, onerror) checks it before producing
+  // ANY sound — this is what prevents the classic "two voices at once" bug
+  // where Google TTS + a late local-voice fallback overlap.
+  const speakToken = useRef(0);
+
   const stopSpeaking = () => {
+    speakToken.current += 1; // invalidate every in-flight/pending speech path
     window.speechSynthesis?.cancel?.();
     audioRefs.current.forEach(a => { try { a.pause(); a.src = ''; } catch { /* noop */ } });
     audioRefs.current = [];
@@ -483,23 +494,33 @@ export default function ChatView() {
     `/api/tts?tl=${tl}&q=${encodeURIComponent(text)}`;
 
   const speakViaGoogle = (text: string, tl: string, onDone: () => void, onFail: (err?: unknown) => void) => {
+    const my = speakToken.current;
     const chunks: string[] = [];
     let rest = String(text || '');
     while (rest.length > 180 && chunks.length < 5) { chunks.push(rest.slice(0, 180)); rest = rest.slice(180); }
     if (rest) chunks.push(rest);
     let i = 0;
+    let settled = false;
+    const live = () => speakToken.current === my;
+    const fail = (e?: unknown) => { if (!settled && live()) { settled = true; onFail(e); } };
+    const done = () => { if (!settled && live()) { settled = true; onDone(); } };
     const playNext = () => {
-      if (i >= chunks.length) { onDone(); return; }
+      if (!live() || settled) return; // stopped or superseded mid-stream
+      if (i >= chunks.length) { done(); return; }
       const audio = new Audio(googleTtsUrl(chunks[i], tl));
       audioRefs.current.push(audio);
       audio.onended = () => { i += 1; playNext(); };
-      audio.onerror = () => { onFail(new Error(`audio failed for chunk ${i}`)); };
-      audio.play().catch((e) => onFail(e));
+      // If a LATER chunk fails after some audio already played, skipping the
+      // chunk is far better than falling back — a fallback now would start a
+      // second voice over the Google one (the exact "two audio" bug).
+      audio.onerror = () => { if (i === 0) fail(new Error(`audio failed for chunk ${i}`)); else { i += 1; playNext(); } };
+      audio.play().catch(() => { if (i === 0) fail(new Error('play blocked')); else { i += 1; playNext(); } });
     };
     playNext();
   };
 
   const speakLocal = (text: string) => {
+    const my = speakToken.current;
     const u = new SpeechSynthesisUtterance(text);
     const lang = langFromScript(text);
     // Always set the utterance language so the browser matches a voice that
@@ -509,10 +530,17 @@ export default function ChatView() {
     if (voice) u.voice = voice;
     u.pitch = 1.12;
     u.rate = 1;
-    u.onend = () => setSpeakingId(null);
+    let localSettled = false;
+    u.onend = () => { if (!localSettled && speakToken.current === my) { localSettled = true; setSpeakingId(null); } };
     u.onerror = () => {
-      // Local engine failed silently — fall back to online Google TTS.
-      speakViaGoogle(text, lang === 'zh' ? 'zh-CN' : lang, () => setSpeakingId(null), (err) => { setSpeakingId(null); toast.error(`Speech unavailable (${err instanceof Error ? err.message : 'unknown error'})`); });
+      // Local engine failed silently — fall back to online Google TTS ONCE.
+      if (localSettled || speakToken.current !== my) return;
+      localSettled = true;
+      speakViaGoogle(text, lang === 'zh' ? 'zh-CN' : lang, () => { if (speakToken.current === my) setSpeakingId(null); }, (err) => {
+        if (speakToken.current !== my) return;
+        setSpeakingId(null);
+        toast.error(`Speech unavailable (${err instanceof Error ? err.message : 'unknown error'})`);
+      });
     };
     window.speechSynthesis.speak(u);
   };
@@ -783,7 +811,8 @@ export default function ChatView() {
               <>
                 {messages.map((msg, idx) => {
                   const isLast = idx === messages.length - 1;
-                  const prov = msg.provider ? PROVIDERS[msg.provider] : null;
+                  const routedName = msg.provider?.startsWith('team:') ? msg.provider.slice(5) : null;
+                  const prov = msg.provider ? (PROVIDERS[msg.provider] ?? (routedName ? PROVIDERS.team : null)) : null;
                   return (
                     <div key={msg.id} className={`cv-row ${msg.role} ${msg.pinned ? 'is-pinned' : ''}`}>
                       {msg.role === 'assistant' && (
@@ -859,8 +888,8 @@ export default function ChatView() {
                           <div className="cv-meta-wrap">
                             <div className="cv-meta">
                               {prov && (
-                                <span className={`cv-provider ${prov.cls}`}>
-                                  <prov.Icon /> {prov.label}
+                                <span className={`cv-provider ${prov.cls}`} title={routedName ? `Routed by ${bot.name} to the ${routedName} specialist` : undefined}>
+                                  {routedName ? <><prov.Icon /> {routedName}</> : <><prov.Icon /> {prov.label}</>}
                                 </span>
                               )}
                               {msg.role === 'assistant' && (
@@ -925,6 +954,16 @@ export default function ChatView() {
 
         <div className="cv-composer">
           <div className="cv-composer-inner">
+            {teamOn && (
+              <button
+                className={`cv-team-btn ${teamOff ? 'is-off' : ''}`}
+                onClick={() => setTeamOff(!teamOff)}
+                title={teamOff ? 'Team Mode paused — this bot answers directly' : 'Team Mode active — messages route to the best specialist'}
+                aria-label="Toggle Team Mode"
+              >
+                <Users />
+              </button>
+            )}
             <button
               className={`cv-attach-btn ${listening ? 'is-listening' : ''}`}
               onClick={toggleVoice}
