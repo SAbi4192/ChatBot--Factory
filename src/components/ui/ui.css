@@ -1193,3 +1193,7 @@
 .share-content { overflow-wrap: anywhere; word-break: break-word; }
 .share-content pre { overflow-x: auto; }
 @media (max-width: 560px) { .share-header .btn-text { display: none; } }
+
+/* Light theme: palette/modal scrims soften off black */
+[data-theme="light"] .cmdk-overlay { background: rgba(120, 90, 40, 0.22); }
+[data-theme="light"] .ui-overlay { background: rgba(120, 90, 40, 0.22); }

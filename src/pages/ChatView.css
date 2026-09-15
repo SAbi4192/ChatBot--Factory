@@ -407,6 +407,12 @@
 .cv-showcase button:hover { background: rgba(255,255,255,0.12); }
 .cv-showcase button svg { width: 16px; height: 16px; }
 .cv-showcase-bar { position: absolute; left: 0; top: 0; height: 2px; background: #F5B13D; animation: scFill linear forwards; }
+
+/* Light theme — showcase pill must not stay black */
+[data-theme="light"] .cv-showcase { background: rgba(255, 255, 255, 0.92); border-color: rgba(120, 90, 40, 0.14); box-shadow: 0 8px 28px rgba(120, 90, 40, 0.14); }
+[data-theme="light"] .cv-showcase button { color: #1C1917; }
+[data-theme="light"] .cv-showcase button:hover { background: rgba(120, 90, 40, 0.08); }
+[data-theme="light"] .cv-showcase-label { color: #C87F0A; }
 @keyframes scFill { from { width: 0; } to { width: 100%; } }
 
 /* ---- loading / not-found fallback ---- */
